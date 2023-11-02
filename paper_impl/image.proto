@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package image;
+
+message Request {
+    string image_data = 1;
+    int32 req_id = 2;
+}
+
+message Response{
+    string ack_data = 1;
+    int32 req_id = 2;
+    double recv_time = 3;
+}
+
+service GRPCImage {
+    rpc SimpleMethod (Request) returns (Response);
+    rpc BidirectionalStreamingMethod (stream Request) returns (stream Response);
+}
