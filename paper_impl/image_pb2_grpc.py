@@ -15,12 +15,12 @@ class GRPCImageStub(object):
             channel: A grpc.Channel.
         """
         self.ProcessImageSync = channel.unary_unary(
-                '/image.GRPCImage/SimpleMethod',
+                '/image.GRPCImage/ProcessImageSync',
                 request_serializer=image__pb2.Request.SerializeToString,
                 response_deserializer=image__pb2.Response.FromString,
                 )
         self.ProcessImageStreaming = channel.stream_stream(
-                '/image.GRPCImage/BidirectionalStreamingMethod',
+                '/image.GRPCImage/ProcessImageStreaming',
                 request_serializer=image__pb2.Request.SerializeToString,
                 response_deserializer=image__pb2.Response.FromString,
                 )
@@ -29,13 +29,13 @@ class GRPCImageStub(object):
 class GRPCImageServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def SimpleMethod(self, request, context):
+    def ProcessImageSync(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def BidirectionalStreamingMethod(self, request_iterator, context):
+    def ProcessImageStreaming(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -44,12 +44,12 @@ class GRPCImageServicer(object):
 
 def add_GRPCImageServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SimpleMethod': grpc.unary_unary_rpc_method_handler(
+            'ProcessImageSync': grpc.unary_unary_rpc_method_handler(
                     servicer.SimpleMethod,
                     request_deserializer=image__pb2.Request.FromString,
                     response_serializer=image__pb2.Response.SerializeToString,
             ),
-            'BidirectionalStreamingMethod': grpc.stream_stream_rpc_method_handler(
+            'ProcessImageStreaming': grpc.stream_stream_rpc_method_handler(
                     servicer.BidirectionalStreamingMethod,
                     request_deserializer=image__pb2.Request.FromString,
                     response_serializer=image__pb2.Response.SerializeToString,
@@ -65,7 +65,7 @@ class GRPCImage(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def SimpleMethod(request,
+    def ProcessImageSync(request,
             target,
             options=(),
             channel_credentials=None,
@@ -75,14 +75,14 @@ class GRPCImage(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/image.GRPCImage/SimpleMethod',
+        return grpc.experimental.unary_unary(request, target, '/image.GRPCImage/ProcessImageSync',
             image__pb2.Request.SerializeToString,
             image__pb2.Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def BidirectionalStreamingMethod(request_iterator,
+    def ProcessImageStreaming(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -92,7 +92,7 @@ class GRPCImage(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.stream_stream(request_iterator, target, '/image.GRPCImage/BidirectionalStreamingMethod',
+        return grpc.experimental.stream_stream(request_iterator, target, '/image.GRPCImage/ProcessImageStreaming',
             image__pb2.Request.SerializeToString,
             image__pb2.Response.FromString,
             options, channel_credentials,
