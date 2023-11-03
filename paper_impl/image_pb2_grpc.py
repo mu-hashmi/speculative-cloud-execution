@@ -14,12 +14,12 @@ class GRPCImageStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SimpleMethod = channel.unary_unary(
+        self.ProcessImageSync = channel.unary_unary(
                 '/image.GRPCImage/SimpleMethod',
                 request_serializer=image__pb2.Request.SerializeToString,
                 response_deserializer=image__pb2.Response.FromString,
                 )
-        self.BidirectionalStreamingMethod = channel.stream_stream(
+        self.ProcessImageStreaming = channel.stream_stream(
                 '/image.GRPCImage/BidirectionalStreamingMethod',
                 request_serializer=image__pb2.Request.SerializeToString,
                 response_deserializer=image__pb2.Response.FromString,

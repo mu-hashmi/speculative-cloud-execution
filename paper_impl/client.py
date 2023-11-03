@@ -33,31 +33,39 @@ def get_random_bytes(size):
     return array.tobytes().decode(encoding=ENCODING)
 
 
-def simple_method(stub, images, num_requests, width, height, sleep, logger, csv_logger):
-    print("--------------Call SimpleMethod Begin--------------")
+def process_image_sync(
+    stub, images, num_requests, width, height, sleep, logger, csv_logger
+):
+    print("--------------Call ProcessImageSync Begin--------------")
     image_str = get_dummy_image_str(width, height)
     for i in range(num_requests):
         start_time = time.time()
-        request = image_pb2.Request(image_data=image_str, req_id = i)
-        response = stub.SimpleMethod(request)
+        request = image_pb2.Request(image_data=image_str, req_id=i)
+        response = stub.ProcessImageSync(request)
         ack_string = response.ack_data
         cur = time.time()
         latency = cur - start_time
         upload = response.recv_time - start_time
         download = cur - response.recv_time
-        print("resp from server id=%d latency=%f upload=%f download=%f" % (response.req_id, 1e3 * latency, 1e3 * upload, 1e3 * download))
-        logger.info("id %d latency %f upload %f download %f\n" % (response.req_id, latency, upload, download))
+        print(
+            "resp from server id=%d latency=%f upload=%f download=%f"
+            % (response.req_id, 1e3 * latency, 1e3 * upload, 1e3 * download)
+        )
+        logger.info(
+            "id %d latency %f upload %f download %f\n"
+            % (response.req_id, latency, upload, download)
+        )
         logger.info(f"{id},{latency},{upload},{download}")
         if latency <= sleep:
             time.sleep(sleep - latency)
         else:
             print("fall behind by %f" % (latency - sleep))
-            log.write("fall behind %f\n"% (latency - sleep))
-    print("--------------Call SimpleMethod Over---------------")
+            log.write("fall behind %f\n" % (latency - sleep))
+    print("--------------Call ProcessImageSync Over---------------")
 
 
-def bidirectional_streaming_method(stub, byte_size, frequency, logger, csv_logger):
-    logger.info("--------------Call BidirectionalStreamingMethod Begin---------------")
+def process_image_streaming(stub, byte_size, frequency, logger, csv_logger):
+    logger.info("--------------Call ProcessImageStreaming Begin---------------")
     # duration = [0 for i in range(num_requests)]
     # start_time = [0 for i in range(num_requests)]
     # Used for sending at a fixed frequency.
@@ -69,13 +77,15 @@ def bidirectional_streaming_method(stub, byte_size, frequency, logger, csv_logge
         i = 0
         true_start = time.time()
         start_times[i] = time.time()
-        max_concurrent_requests = 1.0 * frequency # 1 seconds worth
+        max_concurrent_requests = 1.0 * frequency  # 1 seconds worth
         while True:
             if len(send_times) > max_concurrent_requests:
                 k = 0
                 while len(send_times) > 0:
                     if k % 10 == 0:
-                        logger.warning(f"Queued {len(send_times)} concurrent requests...recovering")
+                        logger.warning(
+                            f"Queued {len(send_times)} concurrent requests...recovering"
+                        )
                     time.sleep(0.1)
                     k += 1
 
@@ -100,7 +110,7 @@ def bidirectional_streaming_method(stub, byte_size, frequency, logger, csv_logge
                 start_times[i + 1] = time.time()
             i += 1
 
-    response_iterator = stub.BidirectionalStreamingMethod(request_messages())
+    response_iterator = stub.ProcessImageStreaming(request_messages())
     for response in response_iterator:
         recv_time = time.time()
         upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
@@ -115,7 +125,7 @@ def bidirectional_streaming_method(stub, byte_size, frequency, logger, csv_logge
         # logger.info("resp from server id=%d time=%f" %
         # (response.req_id, duration[response.req_id]))
 
-    logger.info("--------------Call BidirectionalStreamingMethod Over---------------")
+    logger.info("--------------Call ProcessImageStreaming Over---------------")
 
 
 def main(host: str, pattern: str, byte_size: int, frequency: float):
@@ -168,9 +178,7 @@ def main(host: str, pattern: str, byte_size: int, frequency: float):
             # simple_method(stub, files, 100, 1920, 1080, 0.1, logger)
             pass
         elif pattern == "multi":
-            bidirectional_streaming_method(
-                stub, byte_size, frequency, logger, csv_logger
-            )
+            process_image_streaming(stub, byte_size, frequency, logger, csv_logger)
         else:
             raise Exception("Error")
 
