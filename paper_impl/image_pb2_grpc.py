@@ -45,12 +45,12 @@ class GRPCImageServicer(object):
 def add_GRPCImageServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ProcessImageSync': grpc.unary_unary_rpc_method_handler(
-                    servicer.SimpleMethod,
+                    servicer.ProcessImageSync,
                     request_deserializer=image__pb2.Request.FromString,
                     response_serializer=image__pb2.Response.SerializeToString,
             ),
             'ProcessImageStreaming': grpc.stream_stream_rpc_method_handler(
-                    servicer.BidirectionalStreamingMethod,
+                    servicer.ProcessImageStreaming,
                     request_deserializer=image__pb2.Request.FromString,
                     response_serializer=image__pb2.Response.SerializeToString,
             ),

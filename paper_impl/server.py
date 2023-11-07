@@ -31,7 +31,7 @@ def process_dummy_image(image_data):
 
 
 class ImageServer(image_pb2_grpc.GRPCImageServicer):
-    def SimpleMethod(self, request, context):
+    def ProcessImageSync(self, request, context):
         # print("SimpleMethod called by client with the message len: %d" % (len(request.image_data)))
         # image_received = process_image(request.image_data)
         recv_time = time.time()
@@ -42,7 +42,7 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
         )
         return response
 
-    def BidirectionalStreamingMethod(self, request_iterator, context):
+    def ProcessImageStreaming(self, request_iterator, context):
         for request in request_iterator:
             recv_time = time.time()
             print(
