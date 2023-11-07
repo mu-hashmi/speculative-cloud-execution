@@ -1,12 +1,8 @@
 import grpc
 import image_pb2
 import image_pb2_grpc
-import sys
 import random
-import io
 import time
-import datetime
-import logging
 from os import listdir
 from os.path import isfile, join
 import base64
@@ -33,10 +29,7 @@ def get_random_bytes(size):
     return array.tobytes().decode(encoding=ENCODING)
 
 
-def process_image_sync(
-    stub, images, num_requests, width, height, sleep, logger, csv_logger
-):
-    print("--------------Call ProcessImageSync Begin--------------")
+def process_image_sync(stub, images, num_requests, width, height, sleep):
     image_str = get_dummy_image_str(width, height)
     for i in range(num_requests):
         start_time = time.time()
@@ -51,24 +44,13 @@ def process_image_sync(
             "resp from server id=%d latency=%f upload=%f download=%f"
             % (response.req_id, 1e3 * latency, 1e3 * upload, 1e3 * download)
         )
-        logger.info(
-            "id %d latency %f upload %f download %f\n"
-            % (response.req_id, latency, upload, download)
-        )
-        logger.info(f"{id},{latency},{upload},{download}")
         if latency <= sleep:
             time.sleep(sleep - latency)
         else:
             print("fall behind by %f" % (latency - sleep))
-            log.write("fall behind %f\n" % (latency - sleep))
-    print("--------------Call ProcessImageSync Over---------------")
 
 
-def process_image_streaming(stub, byte_size, frequency, logger, csv_logger):
-    logger.info("--------------Call ProcessImageStreaming Begin---------------")
-    # duration = [0 for i in range(num_requests)]
-    # start_time = [0 for i in range(num_requests)]
-    # Used for sending at a fixed frequency.
+def process_image_streaming(stub, byte_size, frequency):
     start_times = dict()
     send_times = dict()
     sleep = 1.0 / frequency
@@ -82,10 +64,6 @@ def process_image_streaming(stub, byte_size, frequency, logger, csv_logger):
             if len(send_times) > max_concurrent_requests:
                 k = 0
                 while len(send_times) > 0:
-                    if k % 10 == 0:
-                        logger.warning(
-                            f"Queued {len(send_times)} concurrent requests...recovering"
-                        )
                     time.sleep(0.1)
                     k += 1
 
@@ -95,18 +73,14 @@ def process_image_streaming(stub, byte_size, frequency, logger, csv_logger):
             # image_str = get_dummy_image_str(width, height)
             image_str = get_random_bytes(byte_size)
             request = image_pb2.Request(image_data=image_str, req_id=i)
-            logger.info(f"Sending request id={i}, active_requests={len(start_times)}")
             send_times[i] = time.time()
             yield request
             cur_time = time.time()
             sleep_time = start_times[i + 1] - cur_time
             total_dur = cur_time - true_start
-            # logger.info(f"{i + 1} requests in {total_dur} sec {(i + 1) / total_dur} req/s")
             if sleep_time >= 0:
-                # logging.info(f"sleep {sleep_time}")
                 time.sleep(sleep_time)
             else:
-                logger.warning(f"Fell behind by {abs(sleep_time)} s")
                 start_times[i + 1] = time.time()
             i += 1
 
@@ -116,16 +90,9 @@ def process_image_streaming(stub, byte_size, frequency, logger, csv_logger):
         upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
         download_ms = 1e3 * (recv_time - response.recv_time)
         duration_ms = 1e3 * (time.time() - send_times[response.req_id])
-        logger.info(
-            f"response from server id={response.req_id}, total={duration_ms:.2f} ms, upload={upload_ms:.2f} ms, download={download_ms:.2f} ms"
-        )
-        csv_logger.info(f"{response.req_id},{duration_ms},{upload_ms},{download_ms}")
         del start_times[response.req_id]
         del send_times[response.req_id]
-        # logger.info("resp from server id=%d time=%f" %
         # (response.req_id, duration[response.req_id]))
-
-    logger.info("--------------Call ProcessImageStreaming Over---------------")
 
 
 def main(host: str, pattern: str, byte_size: int, frequency: float):
@@ -142,43 +109,13 @@ def main(host: str, pattern: str, byte_size: int, frequency: float):
         # ("grpc.writeFlags.BUFFER_HINT", 1),
     ]
     # time_str = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    date_fmt = "%Y-%m-%d-%H:%M:%S"
-    date_fmt = "%Y-%m-%dT%H:%M:%S"
-    time_str = datetime.datetime.now().strftime(date_fmt)
-    csv_filename = f"log/FR{frequency}-{time_str}.csv"
-    filename = f"log/FR{frequency}-{time_str}.log"
-
-    logging.root.setLevel(logging.NOTSET)
-    csv_handler = logging.FileHandler(csv_filename)
-    csv_handler.setLevel(logging.DEBUG)
-    csv_fmt = "%(asctime)s.%(msecs)03d,%(message)s"
-    csv_formatter = logging.Formatter(fmt=csv_fmt, datefmt=date_fmt)
-    csv_handler.setFormatter(csv_formatter)
-    csv_logger = logging.getLogger("csv_logger")
-    csv_logger.addHandler(csv_handler)
-    csv_logger.propagate = False
-
-    handler = logging.FileHandler(filename)
-    handler.setLevel(logging.DEBUG)
-    fmt = "%(asctime)s.%(msecs)03d %(name)s %(levelname)s: %(message)s"
-    formatter = logging.Formatter(fmt=fmt, datefmt=date_fmt)
-    handler.setFormatter(formatter)
-    logger = logging.getLogger("logger")
-    logger.addHandler(handler)
-    # logger.propagate = False
-    stream_handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
 
     with grpc.insecure_channel(host + ":" + PORT, options=options) as channel:
         stub = image_pb2_grpc.GRPCImageStub(channel)
         if pattern == "simple":
-            # Broken
-            # simple_method(stub, files, 100, 1920, 1080, 0.1, logger)
-            pass
+            process_image_sync(stub, files, 100, 1920, 1080, 0.1)
         elif pattern == "multi":
-            process_image_streaming(stub, byte_size, frequency, logger, csv_logger)
+            process_image_streaming(stub, byte_size, frequency)
         else:
             raise Exception("Error")
 
