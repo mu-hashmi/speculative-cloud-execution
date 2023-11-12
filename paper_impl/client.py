@@ -30,6 +30,7 @@ def get_random_bytes(size):
 
 
 def process_image_sync(stub, images, num_requests, width, height, sleep):
+    print('calling client process_image_sync')
     image_str = get_dummy_image_str(width, height)
     for i in range(num_requests):
         start_time = time.time()
@@ -92,10 +93,11 @@ def process_image_streaming(stub, byte_size, frequency):
         duration_ms = 1e3 * (time.time() - send_times[response.req_id])
         del start_times[response.req_id]
         del send_times[response.req_id]
+        print('received response')
         # (response.req_id, duration[response.req_id]))
 
 
-def main(host: str, pattern: str, byte_size: int, frequency: float):
+def main(host: str, pattern: str, byte_size: int, frequency: float, height: int, delay: float):
     files = []  # Not using real images
     # image_folder = "images"
     # filenames = [f for f in listdir(image_folder) if isfile(join(image_folder, f))]
@@ -113,7 +115,7 @@ def main(host: str, pattern: str, byte_size: int, frequency: float):
     with grpc.insecure_channel(host + ":" + PORT, options=options) as channel:
         stub = image_pb2_grpc.GRPCImageStub(channel)
         if pattern == "simple":
-            process_image_sync(stub, files, 100, 1920, 1080, 0.1)
+            process_image_sync(stub, files, byte_size, frequency, height, delay)
         elif pattern == "multi":
             process_image_streaming(stub, byte_size, frequency)
         else:

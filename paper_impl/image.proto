@@ -14,6 +14,6 @@ message Response{
 }
 
 service GRPCImage {
-    rpc SimpleMethod (Request) returns (Response);
-    rpc BidirectionalStreamingMethod (stream Request) returns (stream Response);
+    rpc ProcessImageSync (Request) returns (Response);
+    rpc ProcessImageStreaming (stream Request) returns (stream Response);
 }

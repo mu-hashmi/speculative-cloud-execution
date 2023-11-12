@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bimage.proto\x12\x05image\"-\n\x07Request\x12\x12\n\nimage_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\"?\n\x08Response\x12\x10\n\x08\x61\x63k_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\x12\x11\n\trecv_time\x18\x03 \x01(\x01\x32\x81\x01\n\tGRPCImage\x12/\n\x0cSimpleMethod\x12\x0e.image.Request\x1a\x0f.image.Response\x12\x43\n\x1c\x42idirectionalStreamingMethod\x12\x0e.image.Request\x1a\x0f.image.Response(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bimage.proto\x12\x05image\"-\n\x07Request\x12\x12\n\nimage_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\"?\n\x08Response\x12\x10\n\x08\x61\x63k_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\x12\x11\n\trecv_time\x18\x03 \x01(\x01\x32~\n\tGRPCImage\x12\x33\n\x10ProcessImageSync\x12\x0e.image.Request\x1a\x0f.image.Response\x12<\n\x15ProcessImageStreaming\x12\x0e.image.Request\x1a\x0f.image.Response(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,6 +24,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_REQUEST']._serialized_end=67
   _globals['_RESPONSE']._serialized_start=69
   _globals['_RESPONSE']._serialized_end=132
-  _globals['_GRPCIMAGE']._serialized_start=135
-  _globals['_GRPCIMAGE']._serialized_end=264
+  _globals['_GRPCIMAGE']._serialized_start=134
+  _globals['_GRPCIMAGE']._serialized_end=260
 # @@protoc_insertion_point(module_scope)
