@@ -32,7 +32,7 @@ def process_dummy_image(image_data):
 
 class ImageServer(image_pb2_grpc.GRPCImageServicer):
     def ProcessImageSync(self, request, context):
-        # print("SimpleMethod called by client with the message len: %d" % (len(request.image_data)))
+        print("ProcessImageSync called by client with the message len: %d" % (len(request.image_data)))
         # image_received = process_image(request.image_data)
         recv_time = time.time()
         image_received = process_dummy_image(request.image_data)
