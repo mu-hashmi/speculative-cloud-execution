@@ -45,6 +45,7 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
     def ProcessImageStreaming(self, request_iterator, context):
         for request in request_iterator:
             recv_time = time.time()
+            time.sleep(1.0)
             print(
                 "recv from client message size %d id %d"
                 % (len(request.image_data), request.req_id)

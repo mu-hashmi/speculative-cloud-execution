@@ -91,9 +91,51 @@ def process_image_streaming(stub, byte_size, frequency):
         upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
         download_ms = 1e3 * (recv_time - response.recv_time)
         duration_ms = 1e3 * (time.time() - send_times[response.req_id])
+        print('response time:', recv_time - send_times[response.req_id])
         del start_times[response.req_id]
         del send_times[response.req_id]
-        print('received response')
+        print('received response with id', response.req_id)
+        # (response.req_id, duration[response.req_id]))
+
+def process_image_streaming_muhammad(stub, byte_size, frequency):
+    start_times = dict()
+    send_times = dict()
+    sleep = 1.0 / frequency
+
+    def request_messages():
+        i = 0
+        true_start = time.time()
+        start_times[i] = time.time()
+        max_concurrent_requests = 1.0 * frequency  # 1 seconds worth
+        while True:
+
+            start_times[i + 1] = start_times[i] + 1.0 / frequency
+            # image_str = get_image_str(images)
+            # request = image_pb2.Request(image_data=get_image_str(images), req_id = i)
+            # image_str = get_dummy_image_str(width, height)
+            image_str = get_random_bytes(byte_size)
+            request = image_pb2.Request(image_data=image_str, req_id=i)
+            send_times[i] = time.time()
+            yield request
+            cur_time = time.time()
+            sleep_time = start_times[i + 1] - cur_time
+            total_dur = cur_time - true_start
+            if sleep_time >= 0:
+                time.sleep(sleep_time)
+            else:
+                start_times[i + 1] = time.time()
+            i += 1
+
+    response_iterator = stub.ProcessImageStreaming(request_messages())
+    for response in response_iterator:
+        recv_time = time.time()
+        upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
+        download_ms = 1e3 * (recv_time - response.recv_time)
+        duration_ms = 1e3 * (time.time() - send_times[response.req_id])
+        print('response time:', recv_time - send_times[response.req_id])
+        del start_times[response.req_id]
+        del send_times[response.req_id]
+        print('received response with id', response.req_id)
         # (response.req_id, duration[response.req_id]))
 
 
@@ -117,7 +159,7 @@ def main(host: str, pattern: str, byte_size: int, frequency: float, height: int,
         if pattern == "simple":
             process_image_sync(stub, files, byte_size, frequency, height, delay)
         elif pattern == "multi":
-            process_image_streaming(stub, byte_size, frequency)
+            process_image_streaming_muhammad(stub, byte_size, frequency)
         else:
             raise Exception("Error")
 

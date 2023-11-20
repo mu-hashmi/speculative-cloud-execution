@@ -11,4 +11,4 @@
 
 ## 3. run: 
 ## python client.py $HOST $PATTERN $NUM_ITER $WIDTH $HEIGHT $DELAY_IN_SECOND
-python client.py 127.0.0.1 simple 100 1 11100 0.033
+python client.py 127.0.0.1 multi 100 2 11100 0.033
