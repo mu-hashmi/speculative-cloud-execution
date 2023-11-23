@@ -1,5 +1,7 @@
 import abc
 from typing import Callable, Generic, Optional, Tuple, TypeVar
+import grpc
+from paper_impl import image_pb2, image_pb2_grpc
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
@@ -16,14 +18,20 @@ class Deadline:
 
 
 class RpcHandle(Generic[RpcRequest, RpcResponse]):
+    def __init__(self):
+        self.channel = grpc.insecure_channel("localhost:12345")
+        self.stub = image_pb2_grpc.GRPCImageStub(self.channel)
+
     def __call__(self, rpc_request: RpcRequest) -> RpcResponse:
-        pass
+        response = self.stub.ProcessImageStreaming(rpc_request)
+        return response
 
 
 class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     """Speculatively executes in the cloud and locally as a fallback."""
 
     def __init__(self):
+        self.implementations = []
         pass
 
     @abc.abstractmethod
@@ -32,9 +40,15 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
-        pass
 
-    # commit comment
+        # iterate through implementations in order of priority
+
+        for imp in self.implementations: # (this is not in order of priority)
+            # call message handlers
+            imp["message_handler"](timestamp, input_message)
+            
+        return self.execute_local(input_message)
+
     def use_cloud(
         self,
         rpc_handle: RpcHandle[RpcRequest, RpcResponse],
@@ -42,7 +56,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
         ],
         response_handler: Callable[[RpcResponse], OutputT],
-        priority: int,
+        priority: int
     ):
         """Registers a cloud implementation for the operator.
 
@@ -60,4 +74,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
                 implementation with the highest priority is selected.
         """
         # store rpc_handle, msg_handler, priority inside a data structure
-        raise NotImplementedError()
+        self.implementations.append({
+            "rpc_handle": rpc_handle,
+            "message_handler": message_handler,
+            "response_handler": response_handler,
+            "priority": priority
+            }
+        )

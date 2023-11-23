@@ -159,7 +159,7 @@ def main(host: str, pattern: str, byte_size: int, frequency: float, height: int,
         if pattern == "simple":
             process_image_sync(stub, files, byte_size, frequency, height, delay)
         elif pattern == "multi":
-            process_image_streaming_muhammad(stub, byte_size, frequency)
+            process_image_streaming(stub, byte_size, frequency)
         else:
             raise Exception("Error")
 
