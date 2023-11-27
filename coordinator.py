@@ -1,7 +1,10 @@
 import abc
-from typing import Callable, Generic, Optional, Tuple, TypeVar
+from dataclasses import dataclass
+from typing import Callable, Generic, Optional, Self, Tuple, TypeVar
+
 import grpc
-from paper_impl import image_pb2, image_pb2_grpc
+
+from paper_impl import image_pb2_grpc
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
@@ -13,8 +16,23 @@ class Timestamp:
     pass
 
 
+@dataclass
 class Deadline:
-    pass
+    seconds: float
+    is_absolute: bool
+
+    @classmethod
+    def absolute(cls, unix_time_seconds: float) -> Self:
+        cls(seconds=unix_time_seconds, is_absolute=True)
+
+    @classmethod
+    def relative(cls, seconds: float) -> Self:
+        cls(seconds=seconds, is_absolute=False)
+
+    def to_absolute(self, start_time: float) -> Self:
+        if self.is_absolute:
+            return self
+        return Deadline(start_time + self.seconds, is_absolute=True)
 
 
 class RpcHandle(Generic[RpcRequest, RpcResponse]):
@@ -43,10 +61,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # iterate through implementations in order of priority
 
-        for imp in self.implementations: # (this is not in order of priority)
+        for imp in self.implementations:  # (this is not in order of priority)
             # call message handlers
             imp["message_handler"](timestamp, input_message)
-            
+
         return self.execute_local(input_message)
 
     def use_cloud(
@@ -56,7 +74,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
         ],
         response_handler: Callable[[RpcResponse], OutputT],
-        priority: int
+        priority: int,
     ):
         """Registers a cloud implementation for the operator.
 
@@ -74,10 +92,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
                 implementation with the highest priority is selected.
         """
         # store rpc_handle, msg_handler, priority inside a data structure
-        self.implementations.append({
-            "rpc_handle": rpc_handle,
-            "message_handler": message_handler,
-            "response_handler": response_handler,
-            "priority": priority
+        self.implementations.append(
+            {
+                "rpc_handle": rpc_handle,
+                "message_handler": message_handler,
+                "response_handler": response_handler,
+                "priority": priority,
             }
         )
