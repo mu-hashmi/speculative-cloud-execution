@@ -36,12 +36,13 @@ class Deadline:
 
 
 class RpcHandle(Generic[RpcRequest, RpcResponse]):
-    def __init__(self):
+    def __init__(self, rpc_call: Callable[[RpcRequest], RpcResponse]):
         self.channel = grpc.insecure_channel("localhost:12345")
-        self.stub = image_pb2_grpc.GRPCImageStub(self.channel)
+        # self.stub = image_pb2_grpc.GRPCImageStub(self.channel)
+        self.rpc_call = rpc_call
 
     def __call__(self, rpc_request: RpcRequest) -> RpcResponse:
-        response = self.stub.ProcessImageStreaming(rpc_request)
+        response = self.rpc_call(rpc_request)
         return response
 
 @dataclass
