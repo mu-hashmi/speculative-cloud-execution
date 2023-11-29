@@ -1,6 +1,7 @@
 import abc
 from dataclasses import dataclass
 from typing import Callable, Generic, Optional, Self, Tuple, TypeVar
+from threading import Thread
 
 import grpc
 
@@ -14,7 +15,6 @@ RpcResponse = TypeVar("RpcResponse")
 
 class Timestamp:
     pass
-
 
 @dataclass
 class Deadline:
@@ -44,28 +44,46 @@ class RpcHandle(Generic[RpcRequest, RpcResponse]):
         response = self.stub.ProcessImageStreaming(rpc_request)
         return response
 
+@dataclass
+class Implementation:
+    rpc_handle: RpcHandle[RpcRequest, RpcResponse]
+    message_handler: Callable[
+            [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
+        ]
+    response_handler: Callable[[RpcResponse], OutputT]
+    priority: int
 
 class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     """Speculatively executes in the cloud and locally as a fallback."""
 
     def __init__(self):
         self.implementations = []
+        self.thread = None
+        self.local_result = None
         pass
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
         pass
 
+    def execute_local_separate_thread(self, input_message: InputT) -> OutputT:
+        self.local_result = self.execute_local(input_message)
+
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
 
+        # Run execute_local in a separate thread
+        self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message))
+        self.thread.start()
         # iterate through implementations in order of priority
 
-        for imp in self.implementations:  # (this is not in order of priority)
+        for imp in sorted(self.implementations, key=lambda x: x.priority):
             # call message handlers
-            imp["message_handler"](timestamp, input_message)
+            imp.message_handler(timestamp, input_message)
 
-        return self.execute_local(input_message)
+        self.thread.join()
+
+        return self.local_result
 
     def use_cloud(
         self,
@@ -93,10 +111,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         """
         # store rpc_handle, msg_handler, priority inside a data structure
         self.implementations.append(
-            {
-                "rpc_handle": rpc_handle,
-                "message_handler": message_handler,
-                "response_handler": response_handler,
-                "priority": priority,
-            }
+            Implementation(
+                rpc_handle=rpc_handle,
+                message_handler=message_handler,
+                response_handler=response_handler,
+                priority=priority,
+            )
         )
