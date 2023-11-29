@@ -73,7 +73,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # needs to call execute_local after calling all the message handlers
 
         # Run execute_local in a separate thread
-        self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message))
+        self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
         self.thread.start()
         # iterate through implementations in order of priority
 
