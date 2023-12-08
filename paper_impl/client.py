@@ -1,6 +1,6 @@
 import grpc
-import image_pb2
-import image_pb2_grpc
+from . import image_pb2
+from . import image_pb2_grpc
 import random
 import time
 from os import listdir
