@@ -70,18 +70,38 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     def execute_local_separate_thread(self, input_message: InputT) -> OutputT:
         self.local_result = self.execute_local(input_message)
 
+    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, results: List[Optional[OutputT]]):
+        # get rpc request and deadline from message handler
+        rpc_request, deadline = imp.message_handler(timestamp, input_message)
+
+        # get rpc response and convert it to the output type
+        response = imp.rpc_handle(rpc_request)
+        result = imp.response_handler(response)
+        results.append(result)
+
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
 
         # Run execute_local in a separate thread
         self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
         self.thread.start()
-        # iterate through implementations in order of priority
+        cloud_results = []
 
-        for imp in sorted(self.implementations, key=lambda x: x.priority):
-            # call message handlers
-            imp.message_handler(timestamp, input_message)
+        # create a thread for each cloud implementation
+        cloud_threads = [
+            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, cloud_results))
+            for imp in sorted(self.implementations, key=lambda x: x.priority)
+        ]
 
+        # start all cloud threads
+        for thread in cloud_threads:
+            thread.start()
+
+        # wait for them to finish
+        for thread in cloud_threads:
+            thread.join()
+
+        # wait for the local thread to finish
         self.thread.join()
 
         return self.local_result
