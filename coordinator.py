@@ -2,6 +2,7 @@ import abc
 from dataclasses import dataclass
 from typing import Callable, Generic, Optional, Self, Tuple, TypeVar, List
 from threading import Thread
+from concurrent import futures
 
 import grpc
 
@@ -85,7 +86,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # Run execute_local in a separate thread
         self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
         self.thread.start()
-        cloud_results = []
 
         # create a thread for each cloud implementation
         cloud_threads = [
@@ -97,14 +97,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         for thread in cloud_threads:
             thread.start()
 
-        # wait for them to finish
-        for thread in cloud_threads:
-            thread.join()
+        # get the first completed thread
+        first_completed, not_completed = futures.wait([self.thread] + cloud_threads, return_when=futures.FIRST_COMPLETED)
 
-        # wait for the local thread to finish
-        self.thread.join()
-
-        return self.local_result
+        for future in first_completed:
+            return future.result()
 
     def use_cloud(
         self,
