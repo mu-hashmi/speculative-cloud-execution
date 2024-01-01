@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, Optional, Self, Tuple, TypeVar, List
 from threading import Thread
 from concurrent import futures
+from datetime import datetime
 
 import grpc
 
@@ -70,15 +71,18 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def execute_local_separate_thread(self, input_message: InputT) -> OutputT:
         self.local_result = self.execute_local(input_message)
+        return self.local_result
 
-    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, results: List[Optional[OutputT]]):
+    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, deadlines: List[Optional[Float]]):
         # get rpc request and deadline from message handler
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
+        deadlines.append(deadline)
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
         result = imp.response_handler(response)
-        results.append(result)
+        # results.append(result)
+        return result
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
@@ -86,10 +90,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # Run execute_local in a separate thread
         self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
         self.thread.start()
+        deadlines = []
 
         # create a thread for each cloud implementation
         cloud_threads = [
-            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, cloud_results))
+            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, deadlines))
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
 
@@ -97,8 +102,15 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         for thread in cloud_threads:
             thread.start()
 
+        # find min deadline
+        min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
+
         # get the first completed thread
-        first_completed, not_completed = futures.wait([self.thread] + cloud_threads, return_when=futures.FIRST_COMPLETED)
+        first_completed, not_completed = futures.wait([self.thread] + cloud_threads, timeout=min_deadline.seconds, return_when=futures.FIRST_COMPLETED)
+
+        if datetime.now() > datetime.fromtimestamp(min_deadline.seconds):
+            print("Missed the deadline!")
+            return 
 
         for future in first_completed:
             return future.result()
