@@ -102,10 +102,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         for thread in cloud_threads:
             thread.start()
 
-        min_deadline = Deadline(seconds=float('inf'), is_absolute=False)
         # find min deadline
-        if deadlines:
-            min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
+        min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
 
         # get the first completed thread
         first_completed, not_completed = futures.wait([self.thread] + cloud_threads, timeout=min_deadline.seconds, return_when=futures.FIRST_COMPLETED)
