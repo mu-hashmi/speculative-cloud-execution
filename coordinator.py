@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Generic, Optional, Self, Tuple, TypeVar, List
 from threading import Thread
 from concurrent import futures
-from datetime import datetime
+import time
 
 import grpc
 
@@ -81,12 +81,12 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
         result = imp.response_handler(response)
-        # results.append(result)
 
         return result
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
+        print("executing process_message")
 
         # Run execute_local in a separate thread
         self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
@@ -102,20 +102,26 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # start all cloud threads
         for thread in cloud_threads:
             thread.start()
-
+        
+        start_time = time.time()
         # find min deadline
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
 
         # get the first completed thread
         while True:
             for thread in [self.thread] + cloud_threads:
+                thread.join(timeout=0.001)
                 if not thread.is_alive():
-                    print("finished execution in", min_deadline.seconds, "seconds")
-                    return
-            
-            # time.sleep(0.001) # 1 ms
+                    print("finished execution")
+                    break
+            time.sleep(0.001)
+            break
 
-        if datetime.now() > datetime.fromtimestamp(min_deadline.seconds):
+        print(start_time)
+        print(min_deadline.seconds)
+        elapsed_time = time.time() - start_time
+        print(elapsed_time)
+        if elapsed_time > min_deadline.seconds:
             print("Missed the deadline!")
             return 
 
