@@ -82,6 +82,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         response = imp.rpc_handle(rpc_request)
         result = imp.response_handler(response)
         # results.append(result)
+
         return result
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
@@ -106,14 +107,17 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
 
         # get the first completed thread
-        first_completed, not_completed = futures.wait([self.thread] + cloud_threads, timeout=min_deadline.seconds, return_when=futures.FIRST_COMPLETED)
+        while True:
+            for thread in [self.thread] + cloud_threads:
+                if not thread.is_alive():
+                    print("finished execution in", min_deadline.seconds, "seconds")
+                    return
+            
+            # time.sleep(0.001) # 1 ms
 
         if datetime.now() > datetime.fromtimestamp(min_deadline.seconds):
             print("Missed the deadline!")
             return 
-
-        for future in first_completed:
-            return future.result()
 
     def use_cloud(
         self,

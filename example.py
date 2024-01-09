@@ -20,9 +20,9 @@ def test_speculative_operator():
     for i in range(3):
         rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         operator.use_cloud(
-            rpc_handle1("rpc handle"),
-            msg_handler("timestamp", "input"),
-            response_handler=lambda _: int(print(f"response_handler {i}")),
+            rpc_handle1,
+            msg_handler,
+            response_handler=lambda _: print(f"response_handler {i}"),
             priority=i,
         )
 
