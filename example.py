@@ -32,7 +32,7 @@ def test_speculative_operator():
         operator.process_message(timestamp, message)
 
 def msg_handler(timestamp, input) -> tuple[RpcRequest, Deadline]:
-    return RpcRequest(input), Deadline(seconds=0.0001, is_absolute=False)
+    return RpcRequest(input), Deadline(seconds=0.5, is_absolute=False)
 
 def rpc_handle1(rpc_request: RpcRequest):
     time.sleep(2)

@@ -75,7 +75,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, deadlines: List[Optional[float]]):
         # get rpc request and deadline from message handler
+        time.sleep(0.1)
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
+
+        print("deadline returned by message handler:", deadline)
         deadlines.append(deadline)
 
         # get rpc response and convert it to the output type
@@ -102,28 +105,39 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # start all cloud threads
         for thread in cloud_threads:
             thread.start()
+
+        threads = [self.thread] + cloud_threads
         
         start_time = time.time()
+
+        while len(deadlines) != len(threads) - 1:
+            time.sleep(0.0001)
+
         # find min deadline
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
+        print('calculated min deadline')
+        print(deadlines)
 
+        thread_completed = False
         # get the first completed thread
-        while True:
-            for thread in [self.thread] + cloud_threads:
+        while not thread_completed:
+            for thread in threads:
                 thread.join(timeout=0.001)
                 if not thread.is_alive():
                     print("finished execution")
+                    thread_completed = True
                     break
             time.sleep(0.001)
-            break
 
         print(start_time)
         print(min_deadline.seconds)
         elapsed_time = time.time() - start_time
         print(elapsed_time)
+
         if elapsed_time > min_deadline.seconds:
             print("Missed the deadline!")
-            return 
+        else:
+            print("finished before deadline!")
 
     def use_cloud(
         self,
