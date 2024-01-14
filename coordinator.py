@@ -122,7 +122,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # get the first completed thread
         while not thread_completed:
             for thread in threads:
-                thread.join(timeout=0.001)
                 if not thread.is_alive():
                     print("finished execution")
                     thread_completed = True
