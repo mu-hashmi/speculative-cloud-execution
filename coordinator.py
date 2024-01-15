@@ -1,7 +1,7 @@
 import abc
 from dataclasses import dataclass
 from typing import Callable, Generic, Optional, Self, Tuple, TypeVar, List
-from threading import Thread
+from threading import Thread, Semaphore
 from concurrent import futures
 import time
 
@@ -63,7 +63,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
-        pass
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
@@ -73,13 +72,14 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.local_result = self.execute_local(input_message)
         return self.local_result
 
-    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, deadlines: List[Optional[float]]):
+    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, deadlines: List[Optional[float]], sem: Semaphore):
         # get rpc request and deadline from message handler
         time.sleep(0.1)
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
 
         print("deadline returned by message handler:", deadline)
         deadlines.append(deadline)
+        sem.release()
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
@@ -95,30 +95,31 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
         self.thread.start()
         deadlines = []
+        sem = Semaphore(0)
 
         # create a thread for each cloud implementation
         cloud_threads = [
-            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, deadlines))
+            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, deadlines, sem))
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
 
         # start all cloud threads
+        start_time = time.time()
         for thread in cloud_threads:
             thread.start()
 
-        threads = [self.thread] + cloud_threads
-        
-        start_time = time.time()
-
-        while len(deadlines) != len(threads) - 1:
-            time.sleep(0.0001)
+        for thread in cloud_threads:
+            sem.acquire()
 
         # find min deadline
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
         print('calculated min deadline')
         print(deadlines)
 
+
+        threads = [self.thread] + cloud_threads
         thread_completed = False
+
         # get the first completed thread
         while not thread_completed:
             for thread in threads:
