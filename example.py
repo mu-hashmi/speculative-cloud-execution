@@ -2,6 +2,7 @@ import time
 
 import coordinator
 from coordinator import Deadline
+from paper_impl import image_pb2, image_pb2_grpc
 
 
 class MyOperator(coordinator.SpeculativeOperator[int, int]):
