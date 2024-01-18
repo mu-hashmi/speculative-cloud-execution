@@ -1,7 +1,8 @@
-import coordinator
-from paper_impl import client
 import time
+
+import coordinator
 from coordinator import Deadline
+
 
 class MyOperator(coordinator.SpeculativeOperator[int, int]):
     def execute_local(self, input_message: int) -> int:
@@ -11,6 +12,17 @@ class MyOperator(coordinator.SpeculativeOperator[int, int]):
 class RpcRequest:
     def __init__(self, input_message: str):
         self.input = input_message
+
+# TODO:
+# - implement this
+# - test that you're sending requests and receiving responses from the example server.
+class ImageRpcHandle(coordinator.RpcStub[image_pb2.Request, image_pb2.Response, image_pb2_grpc.GRPCImageStub]):
+    def stub(self) -> image_pb2.GRPCImageStub:
+        pass
+
+    def __call__(self, rpc_request: image_pb2.Request) -> image_pb2.Response:
+        pass
+
 
 def test_speculative_operator():
     # Create operator.
@@ -41,4 +53,5 @@ def rpc_handle2(rpc_request: RpcRequest):
     time.sleep(1)
 
 if __name__ == "__main__":
+    test_speculative_operator()if __name__ == "__main__":
     test_speculative_operator()

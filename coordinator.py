@@ -1,22 +1,22 @@
 import abc
-from dataclasses import dataclass
-from typing import Callable, Generic, Optional, Self, Tuple, TypeVar, List
-from threading import Thread, Semaphore
-from concurrent import futures
+import functools
 import time
+from dataclasses import dataclass
+from threading import Semaphore, Thread
+from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
 
 import grpc
-
-from paper_impl import image_pb2_grpc
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
 RpcRequest = TypeVar("RpcRequest")
 RpcResponse = TypeVar("RpcResponse")
+RpcStub = TypeVar("RpcStub")
 
 
 class Timestamp:
     pass
+
 
 @dataclass
 class Deadline:
@@ -37,24 +37,30 @@ class Deadline:
         return Deadline(start_time + self.seconds, is_absolute=True)
 
 
-class RpcHandle(Generic[RpcRequest, RpcResponse]):
-    def __init__(self, rpc_call: Callable[[RpcRequest], RpcResponse]):
-        self.channel = grpc.insecure_channel("localhost:12345")
-        # self.stub = image_pb2_grpc.GRPCImageStub(self.channel)
-        self.rpc_call = rpc_call
+class RpcHandle(Generic[RpcRequest, RpcResponse, RpcStub], abc.ABC):
+    def __init__(self, host: str = "localhost", port: int = 12345):
+        self.channel = grpc.insecure_channel(f"{host}:{port}")
 
+    @property
+    @functools.cache
+    @abc.abstractmethod
+    def stub(self) -> RpcStub:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def __call__(self, rpc_request: RpcRequest) -> RpcResponse:
-        response = self.rpc_call(rpc_request)
-        return response
+        raise NotImplementedError
+
 
 @dataclass
 class Implementation:
-    rpc_handle: RpcHandle[RpcRequest, RpcResponse]
+    rpc_handle: RpcHandle[RpcRequest, RpcResponse, RpcStub]
     message_handler: Callable[
-            [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
-        ]
+        [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
+    ]
     response_handler: Callable[[RpcResponse], OutputT]
     priority: int
+
 
 class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     """Speculatively executes in the cloud and locally as a fallback."""
@@ -72,7 +78,14 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.local_result = self.execute_local(input_message)
         return self.local_result
 
-    def execute_cloud_separate_thread(self, imp: Implementation, timestamp: Timestamp, input_message: InputT, deadlines: List[Optional[float]], sem: Semaphore):
+    def execute_cloud_separate_thread(
+        self,
+        imp: Implementation,
+        timestamp: Timestamp,
+        input_message: InputT,
+        deadlines: List[Optional[float]],
+        sem: Semaphore,
+    ):
         # get rpc request and deadline from message handler
         time.sleep(0.1)
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
@@ -92,14 +105,20 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("executing process_message")
 
         # Run execute_local in a separate thread
-        self.thread = Thread(target=self.execute_local_separate_thread, args=(input_message,))
+        # TODO: rename to local_thread
+        self.thread = Thread(
+            target=self.execute_local_separate_thread, args=(input_message,)
+        )
         self.thread.start()
         deadlines = []
         sem = Semaphore(0)
 
         # create a thread for each cloud implementation
         cloud_threads = [
-            Thread(target=self.execute_cloud_separate_thread, args=(imp, timestamp, input_message, deadlines, sem))
+            Thread(
+                target=self.execute_cloud_separate_thread,
+                args=(imp, timestamp, input_message, deadlines, sem),
+            )
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
 
@@ -113,15 +132,16 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # find min deadline
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
-        print('calculated min deadline')
+        print("calculated min deadline")
         print(deadlines)
-
 
         threads = [self.thread] + cloud_threads
         thread_completed = False
 
         # get the first completed thread
         while not thread_completed:
+            # TODO: check if we missed the deadline. If we did, exit this loop and
+            # throw and error.
             for thread in threads:
                 if not thread.is_alive():
                     print("finished execution")
@@ -141,7 +161,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def use_cloud(
         self,
-        rpc_handle: RpcHandle[RpcRequest, RpcResponse],
+        rpc_handle: RpcHandle[RpcRequest, RpcResponse, RpcStub],
         message_handler: Callable[
             [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
         ],
