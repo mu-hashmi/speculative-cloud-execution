@@ -22,7 +22,7 @@ def test_speculative_operator():
         operator.use_cloud(
             rpc_handle1,
             msg_handler,
-            response_handler=lambda _: print(f"response_handler {i}"),
+            response_handler=lambda _, i=i: print(f"response_handler {i}"),
             priority=i,
         )
 
