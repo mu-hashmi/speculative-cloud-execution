@@ -90,7 +90,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         time.sleep(0.1)
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
 
-        print("deadline returned by message handler:", deadline)
         deadlines.append(deadline)
         sem.release()
 
@@ -133,22 +132,28 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # find min deadline
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
-        print("calculated min deadline")
-        print(deadlines)
 
         threads = [self.local_thread] + cloud_threads
         thread_completed = False
+        missed_deadline = False
 
         # get the first completed thread
         while not thread_completed:
-            # TODO: check if we missed the deadline. If we did, exit this loop and
-            # throw and error.
+            elapsed_time = time.time() - start_time
+            if elapsed_time > min_deadline.seconds:
+                missed_deadline = True
+                break
+            
+    
             for thread in threads:
                 if not thread.is_alive():
                     print("finished execution")
                     thread_completed = True
                     break
             time.sleep(0.001)
+        
+        if missed_deadline:
+            raise Exception("No threads finished before deadline!")
 
         print(start_time)
         print(min_deadline.seconds)
