@@ -96,6 +96,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
+        print("response from server id=%d" % response.req_id)
         result = imp.response_handler(response)
 
         return result
@@ -106,10 +107,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # Run execute_local in a separate thread
         # TODO: rename to local_thread
-        self.thread = Thread(
+        self.local_thread = Thread(
             target=self.execute_local_separate_thread, args=(input_message,)
         )
-        self.thread.start()
+        self.local_thread.start()
         deadlines = []
         sem = Semaphore(0)
 
@@ -135,7 +136,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("calculated min deadline")
         print(deadlines)
 
-        threads = [self.thread] + cloud_threads
+        threads = [self.local_thread] + cloud_threads
         thread_completed = False
 
         # get the first completed thread
