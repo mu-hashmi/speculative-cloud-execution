@@ -105,7 +105,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("executing process_message")
 
         # Run execute_local in a separate thread
-        # TODO: rename to local_thread
         self.local_thread = Thread(
             target=self.execute_local_separate_thread, args=(input_message,)
         )
@@ -135,15 +134,12 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         threads = [self.local_thread] + cloud_threads
         thread_completed = False
-        missed_deadline = False
 
         # get the first completed thread
         while not thread_completed:
             elapsed_time = time.time() - start_time
             if elapsed_time > min_deadline.seconds:
-                missed_deadline = True
                 break
-            
     
             for thread in threads:
                 if not thread.is_alive():
@@ -152,7 +148,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
                     break
             time.sleep(0.001)
         
-        if missed_deadline:
+        if not thread_completed:
             raise Exception("No threads finished before deadline!")
 
         print(start_time)
