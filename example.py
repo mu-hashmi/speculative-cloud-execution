@@ -53,12 +53,6 @@ def test_speculative_operator():
 def msg_handler(timestamp, input) -> tuple[RpcRequest, Deadline]:
     return image_pb2.Request(image_data=str(input), req_id=timestamp), Deadline(seconds=0.5, is_absolute=False)
 
-def rpc_handle1(rpc_request: RpcRequest):
-    time.sleep(2)
-
-def rpc_handle2(rpc_request: RpcRequest):
-    time.sleep(1)
-
 def response_handler(input: image_pb2.Response):
     pass
 
