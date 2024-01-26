@@ -41,7 +41,7 @@ def test_speculative_operator():
         operator.use_cloud(
             rpc_handle,
             msg_handler,
-            response_handler=lambda _, i=i: print(f"response_handler {i}"),
+            response_handler,
             priority=i,
         )
 
@@ -58,6 +58,9 @@ def rpc_handle1(rpc_request: RpcRequest):
 
 def rpc_handle2(rpc_request: RpcRequest):
     time.sleep(1)
+
+def response_handler(input: image_pb2.Response):
+    pass
 
 if __name__ == "__main__":
     test_speculative_operator()
