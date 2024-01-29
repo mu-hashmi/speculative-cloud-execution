@@ -103,6 +103,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
         print("executing process_message")
+        print('timestamp:', timestamp)
+        print('input message:', input_message)
 
         # Run execute_local in a separate thread
         self.local_thread = Thread(
@@ -151,10 +153,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         if not thread_completed:
             raise Exception("No threads finished before deadline!")
 
-        print(start_time)
-        print(min_deadline.seconds)
         elapsed_time = time.time() - start_time
-        print(elapsed_time)
 
         if elapsed_time > min_deadline.seconds:
             print("Missed the deadline!")
