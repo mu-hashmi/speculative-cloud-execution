@@ -25,9 +25,7 @@ class ImageRpcHandle(coordinator.RpcHandle[image_pb2.Request, image_pb2.Response
         return image_pb2_grpc.GRPCImageStub(self.channel)
 
     def __call__(self, rpc_request: image_pb2.Request) -> image_pb2.Response:
-        print("request received with the message len: %d" % (len(rpc_request.image_data)))
-        recv_time = time.time()
-        return image_pb2.Response(ack_data=RESPONSE, req_id=rpc_request.req_id, recv_time=recv_time)
+        return self.stub().ProcessImageSync(rpc_request)
 
 
 def test_speculative_operator():
