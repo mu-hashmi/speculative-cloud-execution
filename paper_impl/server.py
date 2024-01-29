@@ -6,6 +6,8 @@ import io
 import base64
 import numpy as np
 import time
+from transformers import pipeline
+import requests
 
 from random import choice
 from string import ascii_uppercase
@@ -17,13 +19,14 @@ PORT = "12345"
 ENCODING = "ISO-8859-1"
 # response_str = ''.join(choice(ascii_uppercase) for i in range(1000))
 RESPONSE = "".join("A" for i in range(1000))
+obj_detector = pipeline("object-detection", model="devonho/detr-resnet-50_finetuned_cppe5")
 
 
 def process_image(image_data):
     im = io.BytesIO(base64.b64decode(image_data))
-    pilimage = Image.open(im)
+    pilimage = Image.open(requests.get(im, stream=True).raw)
     # pilimage = pilimage.save("received.png")
-    return pilimage
+    return obj_detector(pilimage)
 
 
 def process_dummy_image(image_data):
@@ -38,7 +41,7 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
         image_received = process_dummy_image(request.image_data)
         # print(image_received)
         response = image_pb2.Response(
-            ack_data=RESPONSE, req_id=request.req_id, recv_time=recv_time
+            detected_objects=[1,2,3,4], req_id=request.req_id, recv_time=recv_time
         )
         return response
 
