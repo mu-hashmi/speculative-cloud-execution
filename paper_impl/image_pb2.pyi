@@ -6,24 +6,26 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class BoundingBox(_message.Message):
-    __slots__ = ["x_min", "x_max", "y_min", "y_max"]
-    X_MIN_FIELD_NUMBER: _ClassVar[int]
-    X_MAX_FIELD_NUMBER: _ClassVar[int]
-    Y_MIN_FIELD_NUMBER: _ClassVar[int]
-    Y_MAX_FIELD_NUMBER: _ClassVar[int]
-    x_min: float
-    x_max: float
-    y_min: float
-    y_max: float
-    def __init__(self, x_min: _Optional[float] = ..., x_max: _Optional[float] = ..., y_min: _Optional[float] = ..., y_max: _Optional[float] = ...) -> None: ...
+    __slots__ = ["xmin", "xmax", "ymin", "ymax"]
+    XMIN_FIELD_NUMBER: _ClassVar[int]
+    XMAX_FIELD_NUMBER: _ClassVar[int]
+    YMIN_FIELD_NUMBER: _ClassVar[int]
+    YMAX_FIELD_NUMBER: _ClassVar[int]
+    xmin: float
+    xmax: float
+    ymin: float
+    ymax: float
+    def __init__(self, xmin: _Optional[float] = ..., xmax: _Optional[float] = ..., ymin: _Optional[float] = ..., ymax: _Optional[float] = ...) -> None: ...
 
 class DetectedObject(_message.Message):
-    __slots__ = ["box", "object_type_str"]
+    __slots__ = ["score", "label", "box"]
+    SCORE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
     BOX_FIELD_NUMBER: _ClassVar[int]
-    OBJECT_TYPE_STR_FIELD_NUMBER: _ClassVar[int]
+    score: float
+    label: str
     box: BoundingBox
-    object_type_str: str
-    def __init__(self, box: _Optional[_Union[BoundingBox, _Mapping]] = ..., object_type_str: _Optional[str] = ...) -> None: ...
+    def __init__(self, score: _Optional[float] = ..., label: _Optional[str] = ..., box: _Optional[_Union[BoundingBox, _Mapping]] = ...) -> None: ...
 
 class Request(_message.Message):
     __slots__ = ["image_data", "req_id"]

@@ -23,10 +23,9 @@ obj_detector = pipeline("object-detection", model="devonho/detr-resnet-50_finetu
 
 
 def process_image(image_data):
-    im = io.BytesIO(base64.b64decode(image_data))
-    pilimage = Image.open(requests.get(im, stream=True).raw)
-    # pilimage = pilimage.save("received.png")
-    return obj_detector(pilimage)
+    response = requests.get(image_data)
+    im = Image.open(io.BytesIO(response.content))
+    return obj_detector(im)
 
 
 def process_dummy_image(image_data):
@@ -38,10 +37,10 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
         print("ProcessImageSync called by client with the message len: %d" % (len(request.image_data)))
         # image_received = process_image(request.image_data)
         recv_time = time.time()
-        image_received = process_dummy_image(request.image_data)
-        # print(image_received)
+        detected_objects = process_image(request.image_data)
+        print(detected_objects)
         response = image_pb2.Response(
-            detected_objects=[1,2,3,4], req_id=request.req_id, recv_time=recv_time
+            detected_objects=detected_objects, req_id=request.req_id, recv_time=recv_time
         )
         return response
 

@@ -32,6 +32,7 @@ def test_speculative_operator():
     # Create operator.
     operator = MyOperator()
     rpc_handle = ImageRpcHandle()
+    images = ['https://i.imgur.com/2lnWoly.jpg']
 
     # Register cloud implementations.
     for i in range(3):
@@ -43,13 +44,13 @@ def test_speculative_operator():
             priority=i,
         )
 
-    for i in range(5):
+    for i, msg in enumerate(images):
         timestamp = i
-        message = i
+        message = msg
         operator.process_message(timestamp, message)
 
-def msg_handler(timestamp, input) -> tuple[RpcRequest, Deadline]:
-    return image_pb2.Request(image_data=str(input), req_id=timestamp), Deadline(seconds=0.5, is_absolute=False)
+def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
+    return image_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=0.5, is_absolute=False)
 
 def response_handler(input: image_pb2.Response):
     pass

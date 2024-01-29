@@ -3,15 +3,16 @@ syntax = "proto3";
 package image;
 
 message BoundingBox {
-    float x_min = 1;
-    float x_max = 2;
-    float y_min = 3;
-    float y_max = 4;
+    float xmin = 1;
+    float xmax = 2;
+    float ymin = 3;
+    float ymax = 4;
 }
 
 message DetectedObject {
-    BoundingBox box = 1;
-    string object_type_str = 2;
+    float score = 1;
+    string label = 2;
+    BoundingBox box = 3;
 }
 
 message Request {

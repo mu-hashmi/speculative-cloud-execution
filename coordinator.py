@@ -89,18 +89,19 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         sem: Semaphore,
     ):
         # get rpc request and deadline from message handler
-        time.sleep(0.1)
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
 
         deadlines.append(deadline)
         sem.release()
 
+
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
         print("response from server id=%d" % response.req_id)
-        result = imp.response_handler(response)
+        # result = imp.response_handler(response)
 
-        heapq.heappush(self.results, (imp.priority, result))
+        heapq.heappush(self.results, (imp.priority, response))
+        print(self.results)
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
@@ -153,7 +154,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         if not thread_completed:
             raise Exception("No threads finished before deadline!")
 
-        elapsed_time = time.time() - start_time
+        while not self.results:
+            time.sleep(0.0001)
 
         return self.results[0][1]
 
