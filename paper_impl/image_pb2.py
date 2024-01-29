@@ -13,17 +13,21 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bimage.proto\x12\x05image\"-\n\x07Request\x12\x12\n\nimage_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\"?\n\x08Response\x12\x10\n\x08\x61\x63k_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\x12\x11\n\trecv_time\x18\x03 \x01(\x01\x32~\n\tGRPCImage\x12\x33\n\x10ProcessImageSync\x12\x0e.image.Request\x1a\x0f.image.Response\x12<\n\x15ProcessImageStreaming\x12\x0e.image.Request\x1a\x0f.image.Response(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bimage.proto\x12\x05image\"I\n\x0b\x42oundingBox\x12\r\n\x05x_min\x18\x01 \x01(\x02\x12\r\n\x05x_max\x18\x02 \x01(\x02\x12\r\n\x05y_min\x18\x03 \x01(\x02\x12\r\n\x05y_max\x18\x04 \x01(\x02\"J\n\x0e\x44\x65tectedObject\x12\x1f\n\x03\x62ox\x18\x01 \x01(\x0b\x32\x12.image.BoundingBox\x12\x17\n\x0fobject_type_str\x18\x02 \x01(\t\"-\n\x07Request\x12\x12\n\nimage_data\x18\x01 \x01(\t\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\"^\n\x08Response\x12/\n\x10\x64\x65tected_objects\x18\x01 \x03(\x0b\x32\x15.image.DetectedObject\x12\x0e\n\x06req_id\x18\x02 \x01(\x05\x12\x11\n\trecv_time\x18\x03 \x01(\x01\x32~\n\tGRPCImage\x12\x33\n\x10ProcessImageSync\x12\x0e.image.Request\x1a\x0f.image.Response\x12<\n\x15ProcessImageStreaming\x12\x0e.image.Request\x1a\x0f.image.Response(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'image_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_REQUEST']._serialized_start=22
-  _globals['_REQUEST']._serialized_end=67
-  _globals['_RESPONSE']._serialized_start=69
-  _globals['_RESPONSE']._serialized_end=132
-  _globals['_GRPCIMAGE']._serialized_start=134
-  _globals['_GRPCIMAGE']._serialized_end=260
+  _globals['_BOUNDINGBOX']._serialized_start=22
+  _globals['_BOUNDINGBOX']._serialized_end=95
+  _globals['_DETECTEDOBJECT']._serialized_start=97
+  _globals['_DETECTEDOBJECT']._serialized_end=171
+  _globals['_REQUEST']._serialized_start=173
+  _globals['_REQUEST']._serialized_end=218
+  _globals['_RESPONSE']._serialized_start=220
+  _globals['_RESPONSE']._serialized_end=314
+  _globals['_GRPCIMAGE']._serialized_start=316
+  _globals['_GRPCIMAGE']._serialized_end=442
 # @@protoc_insertion_point(module_scope)
