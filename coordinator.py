@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass
 from threading import Semaphore, Thread
 from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
+import heapq
 
 import grpc
 
@@ -69,6 +70,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
+        self.results = []
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
@@ -98,7 +100,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("response from server id=%d" % response.req_id)
         result = imp.response_handler(response)
 
-        return result
+        heapq.heappush(self.results, (imp.priority, result))
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
@@ -159,6 +161,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             print("Missed the deadline!")
         else:
             print("finished before deadline!")
+
+        return self.results[0][1]
 
     def use_cloud(
         self,
