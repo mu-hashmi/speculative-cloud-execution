@@ -19,7 +19,7 @@ PORT = "12345"
 ENCODING = "ISO-8859-1"
 # response_str = ''.join(choice(ascii_uppercase) for i in range(1000))
 RESPONSE = "".join("A" for i in range(1000))
-obj_detector = pipeline("object-detection", model="devonho/detr-resnet-50_finetuned_cppe5")
+obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
 
 
 def process_image(image_data):

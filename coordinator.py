@@ -100,7 +100,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("response from server id=%d" % response.req_id)
         # result = imp.response_handler(response)
 
-        heapq.heappush(self.results, (imp.priority, response))
+        heapq.heappush(self.results, (imp.priority, time.time(), response))
         # print(self.results)
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:

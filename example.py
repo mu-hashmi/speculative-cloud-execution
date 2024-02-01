@@ -32,7 +32,7 @@ def test_speculative_operator():
     # Create operator.
     operator = MyOperator()
     rpc_handle = ImageRpcHandle()
-    images = ['https://i.imgur.com/2lnWoly.jpg']
+    images = ['https://i.imgur.com/2lnWoly.jpg', 'https://media-cldnry.s-nbcnews.com/image/upload/t_fit-1240w,f_auto,q_auto:best/rockcms/2023-08/230802-Waymo-driverless-taxi-ew-233p-e47145.jpg']
 
     # Register cloud implementations.
     for i in range(3):
@@ -48,6 +48,8 @@ def test_speculative_operator():
         timestamp = i
         message = msg
         operator.process_message(timestamp, message)
+        time.sleep(3)
+        print(operator.results)
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
     return image_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=0.5, is_absolute=False)
