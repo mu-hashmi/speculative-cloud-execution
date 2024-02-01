@@ -101,7 +101,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # result = imp.response_handler(response)
 
         heapq.heappush(self.results, (imp.priority, response))
-        print(self.results)
+        # print(self.results)
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
@@ -157,7 +157,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         while not self.results:
             time.sleep(0.0001)
 
-        return self.results[0][1]
+        print(self.results)
 
     def use_cloud(
         self,
