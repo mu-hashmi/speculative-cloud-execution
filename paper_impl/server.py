@@ -45,7 +45,7 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
         # image_received = process_image(request.image_data)
         recv_time = time.time()
         detected_objects = process_image(request.image_data, self.obj_detector)
-        print(detected_objects)
+        # print(detected_objects)
         response = image_pb2.Response(
             detected_objects=detected_objects, req_id=request.req_id, recv_time=recv_time
         )
