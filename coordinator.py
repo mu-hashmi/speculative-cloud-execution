@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from threading import Semaphore, Thread
 from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
 import heapq
+import requests
+from transformers import pipeline
+from PIL import Image
 
 import grpc
 
@@ -71,14 +74,25 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.thread = None
         self.local_result = None
         self.results = []
+        self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
+        
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
-        pass
+        response = requests.get(input_message)
+        im = Image.open(io.BytesIO(response.content))
+        print("running object detector locally...")
+        start_time = time.time()
+        objs = self.obj_detector(im)
+        elapsed_time = time.time() - start_time
+        print(f"elapsed time: {elapsed_time}")
+        return objs
 
-    def execute_local_separate_thread(self, input_message: InputT) -> OutputT:
-        self.local_result = self.execute_local(input_message)
-        return self.local_result
+    def execute_local_separate_thread(self, input_message: InputT):
+        # self.local_result = self.execute_local(input_message)
+        # time.sleep(1.2)
+        # heapq.heappush(self.results, (-1, time.time(), self.local_result))
+        pass
 
     def execute_cloud_separate_thread(
         self,
@@ -157,7 +171,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         while not self.results:
             time.sleep(0.0001)
 
-        print(self.results)
+        # print(self.results)
+        # self.results.pop()
 
     def use_cloud(
         self,

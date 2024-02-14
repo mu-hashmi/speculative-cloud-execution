@@ -19,13 +19,17 @@ PORT = "12345"
 ENCODING = "ISO-8859-1"
 # response_str = ''.join(choice(ascii_uppercase) for i in range(1000))
 RESPONSE = "".join("A" for i in range(1000))
-obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
 
-
-def process_image(image_data):
+def process_image(image_data, obj_detector):
     response = requests.get(image_data)
     im = Image.open(io.BytesIO(response.content))
-    return obj_detector(im)
+    print("running object detector...")
+    start_time = time.time()
+    objs = obj_detector(im)
+    elapsed_time = time.time() - start_time
+    print(f"elapsed time: {elapsed_time}")
+    return objs
+
 
 
 def process_dummy_image(image_data):
@@ -33,11 +37,14 @@ def process_dummy_image(image_data):
 
 
 class ImageServer(image_pb2_grpc.GRPCImageServicer):
+    def __init__(self):
+        self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
+
     def ProcessImageSync(self, request, context):
         print("ProcessImageSync called by client with the message len: %d" % (len(request.image_data)))
         # image_received = process_image(request.image_data)
         recv_time = time.time()
-        detected_objects = process_image(request.image_data)
+        detected_objects = process_image(request.image_data, self.obj_detector)
         print(detected_objects)
         response = image_pb2.Response(
             detected_objects=detected_objects, req_id=request.req_id, recv_time=recv_time
