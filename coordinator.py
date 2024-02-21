@@ -73,8 +73,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
-        self.results = []
-        self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
+        # self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
         
 
     @abc.abstractmethod
@@ -88,7 +87,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print(f"elapsed time: {elapsed_time}")
         return objs
 
-    def execute_local_separate_thread(self, input_message: InputT):
+    def execute_local_separate_thread(self, input_message: InputT, result_heap: List):
         # self.local_result = self.execute_local(input_message)
         # time.sleep(1.2)
         # heapq.heappush(self.results, (-1, time.time(), self.local_result))
@@ -101,6 +100,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         input_message: InputT,
         deadlines: List[Optional[float]],
         sem: Semaphore,
+        result_heap: List
     ):
         # get rpc request and deadline from message handler
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
@@ -114,16 +114,18 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         print("response from server id=%d" % response.req_id)
         # result = imp.response_handler(response)
 
-        heapq.heappush(self.results, (imp.priority, time.time(), response))
-        # print(self.results)
+        heapq.heappush(result_heap, (imp.priority, time.time(), response))
+        # print(result_heap)
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
         print("executing process_message")
+        local_result_heap = []
+        cloud_result_heap = []
 
         # Run execute_local in a separate thread
         self.local_thread = Thread(
-            target=self.execute_local_separate_thread, args=(input_message,)
+            target=self.execute_local_separate_thread, args=(input_message, local_result_heap)
         )
         self.local_thread.start()
         deadlines = []
@@ -133,7 +135,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         cloud_threads = [
             Thread(
                 target=self.execute_cloud_separate_thread,
-                args=(imp, timestamp, input_message, deadlines, sem),
+                args=(imp, timestamp, input_message, deadlines, sem, cloud_result_heap),
             )
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
@@ -167,12 +169,22 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         
         if not thread_completed:
             raise Exception("No threads finished before deadline!")
+        
+        while not local_result_heap and not cloud_result_heap:
+            time.sleep(0.00001)
+        
+        if local_result_heap:
+            result = heapq.heappop(local_result_heap)
+        else:
+            result = heapq.heappop(cloud_result_heap)
 
-        while not self.results:
-            time.sleep(0.0001)
+        while local_result_heap:
+            heapq.heappop(local_result_heap)
 
-        # print(self.results)
-        # self.results.pop()
+        while cloud_result_heap:
+            heapq.heappop(cloud_result_heap)
+
+        return result
 
     def use_cloud(
         self,

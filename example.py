@@ -1,5 +1,7 @@
 import time
 
+import grpc
+
 import coordinator
 from coordinator import Deadline
 from paper_impl import image_pb2, image_pb2_grpc
@@ -24,7 +26,10 @@ class ImageRpcHandle(coordinator.RpcHandle[image_pb2.Request, image_pb2.Response
         return image_pb2_grpc.GRPCImageStub(self.channel)
 
     def __call__(self, rpc_request: image_pb2.Request) -> image_pb2.Response:
-        return self.stub().ProcessImageSync(rpc_request)
+        if isinstance(rpc_request, grpc._cython.cygrpc.RequestIterator):
+            return self.stub().ProcessImageStreaming(rpc_request)
+        else:
+            return self.stub().ProcessImageSync(rpc_request)
 
 
 def test_speculative_operator():
@@ -35,9 +40,13 @@ def test_speculative_operator():
               'https://farm8.staticflickr.com/7117/7624759864_f1940fbfd3_z.jpg',
               'https://farm8.staticflickr.com/7419/10039650654_5d5a8b6706_z.jpg',
               'https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg']
+    
+    def request_iterator():
+        for msg in images:
+            yield image_pb2.Request(image_data=msg, req_id=int(time.time()))
 
     # Register cloud implementations.
-    for i in range(1):
+    for i in range(3):
         # rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         operator.use_cloud(
             rpc_handle,
@@ -49,11 +58,14 @@ def test_speculative_operator():
     for i, msg in enumerate(images):
         timestamp = i
         message = msg
-        operator.process_message(timestamp, message)
-        time.sleep(1.2) # to wait for each to get processed
+        result = operator.process_message(timestamp, message)
+        time.sleep(2.0) # to wait for each to get processed
         # maybe block until results is non-empty? 
-        print(operator.results)
-        operator.results.pop()
+        if not result:
+            print('result empty')
+        else:
+            print(result)
+
         print(f"url: {msg}")
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
