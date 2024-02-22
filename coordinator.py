@@ -8,6 +8,7 @@ import heapq
 import requests
 from transformers import pipeline
 from PIL import Image
+import io
 
 import grpc
 
