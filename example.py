@@ -1,4 +1,5 @@
 import time
+from typing import Iterator
 
 import grpc
 
@@ -26,7 +27,7 @@ class ImageRpcHandle(coordinator.RpcHandle[image_pb2.Request, image_pb2.Response
         return image_pb2_grpc.GRPCImageStub(self.channel)
 
     def __call__(self, rpc_request: image_pb2.Request) -> image_pb2.Response:
-        if isinstance(rpc_request, grpc._cython.cygrpc.RequestIterator):
+        if isinstance(rpc_request, Iterator):
             return self.stub().ProcessImageStreaming(rpc_request)
         else:
             return self.stub().ProcessImageSync(rpc_request)
@@ -55,18 +56,21 @@ def test_speculative_operator():
             priority=i,
         )
 
-    for i, msg in enumerate(images):
-        timestamp = i
-        message = msg
-        result = operator.process_message(timestamp, message)
-        time.sleep(2.0) # to wait for each to get processed
-        # maybe block until results is non-empty? 
-        if not result:
-            print('result empty')
-        else:
-            print(result)
+    result = operator.process_message_stream(0, request_iterator())
+    # print(result)
 
-        print(f"url: {msg}")
+    # for i, msg in enumerate(images):
+    #     timestamp = i
+    #     message = msg
+    #     result = operator.process_message(timestamp, message)
+    #     time.sleep(2.0) # to wait for each to get processed
+    #     # maybe block until results is non-empty? 
+    #     if not result:
+    #         print('result empty')
+    #     else:
+    #         print(result)
+
+    #     print(f"url: {msg}")
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
     return image_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)

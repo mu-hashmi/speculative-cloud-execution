@@ -185,6 +185,74 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             heapq.heappop(cloud_result_heap)
 
         return result
+    
+    def process_message_stream(self, timestamp: Timestamp, input_iterator: InputT) -> OutputT:
+        # needs to call execute_local after calling all the message handlers
+        print("executing process_message_stream")
+        local_result_heap = []
+        cloud_result_heap = []
+
+        for request in input_iterator:
+
+            # Run execute_local in a separate thread
+            self.local_thread = Thread(
+                target=self.execute_local_separate_thread, args=(request.image_data, local_result_heap)
+            )
+            self.local_thread.start()
+            deadlines = []
+            sem = Semaphore(0)
+
+            # create a thread for each cloud implementation
+            cloud_threads = [
+                Thread(
+                    target=self.execute_cloud_separate_thread,
+                    args=(imp, timestamp, request.image_data, deadlines, sem, cloud_result_heap),
+                )
+                for imp in sorted(self.implementations, key=lambda x: x.priority)
+            ]
+
+            # start all cloud threads
+            start_time = time.time()
+            for thread in cloud_threads:
+                thread.start()
+
+            for thread in cloud_threads:
+                sem.acquire()
+
+            # find min deadline
+            min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
+
+            threads = [self.local_thread] + cloud_threads
+            thread_completed = False
+
+            # get the first completed thread
+            while not thread_completed:
+                elapsed_time = time.time() - start_time
+                if elapsed_time > min_deadline.seconds:
+                    break
+        
+                for thread in threads:
+                    if not thread.is_alive():
+                        print("finished execution before deadline")
+                        thread_completed = True
+                        break
+                time.sleep(0.001)
+            
+            if not thread_completed:
+                raise Exception("No threads finished before deadline!")
+            
+            while not local_result_heap and not cloud_result_heap:
+                time.sleep(0.00001)
+            
+            if local_result_heap:
+                result = heapq.heappop(local_result_heap)
+            else:
+                result = heapq.heappop(cloud_result_heap)
+
+            local_result_heap = []
+            cloud_result_heap = []
+
+            print(result)
 
     def use_cloud(
         self,
