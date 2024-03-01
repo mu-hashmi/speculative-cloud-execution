@@ -1,5 +1,6 @@
 import time
-from typing import Iterator
+from typing import Union
+from collections.abc import Iterator
 
 import grpc
 
@@ -26,8 +27,9 @@ class ImageRpcHandle(coordinator.RpcHandle[image_pb2.Request, image_pb2.Response
     def stub(self) -> image_pb2_grpc.GRPCImageStub:
         return image_pb2_grpc.GRPCImageStub(self.channel)
 
-    def __call__(self, rpc_request: image_pb2.Request) -> image_pb2.Response:
-        if isinstance(rpc_request, Iterator):
+    def __call__(self, rpc_request: Union[image_pb2.Request, Iterator[image_pb2.Request]]) -> image_pb2.Response:
+        if hasattr(rpc_request, "__iter__"):
+            print('calling process image streaming')
             return self.stub().ProcessImageStreaming(rpc_request)
         else:
             return self.stub().ProcessImageSync(rpc_request)
@@ -56,7 +58,7 @@ def test_speculative_operator():
             priority=i,
         )
 
-    result = operator.process_message_stream(0, request_iterator())
+    result = operator.process_message(1, request_iterator())
     # print(result)
 
     # for i, msg in enumerate(images):
@@ -72,8 +74,9 @@ def test_speculative_operator():
 
     #     print(f"url: {msg}")
 
-def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
-    return image_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)
+def msg_handler(timestamp, input_message) -> Iterator[tuple[RpcRequest, Deadline]]:
+    for img in input_message:
+        yield image_pb2.Request(image_data=img.image_data, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)
 
 def response_handler(input: image_pb2.Response):
     pass

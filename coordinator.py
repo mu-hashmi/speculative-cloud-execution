@@ -9,6 +9,9 @@ import requests
 from transformers import pipeline
 from PIL import Image
 import io
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 import grpc
 
@@ -81,11 +84,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     def execute_local(self, input_message: InputT) -> OutputT:
         response = requests.get(input_message)
         im = Image.open(io.BytesIO(response.content))
-        print("running object detector locally...")
+        logger.info("running object detector locally...")
         start_time = time.time()
         objs = self.obj_detector(im)
         elapsed_time = time.time() - start_time
-        print(f"elapsed time: {elapsed_time}")
+        logger.info(f"elapsed time: {elapsed_time}")
         return objs
 
     def execute_local_separate_thread(self, input_message: InputT, result_heap: List):
@@ -104,15 +107,17 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         result_heap: List
     ):
         # get rpc request and deadline from message handler
-        rpc_request, deadline = imp.message_handler(timestamp, input_message)
-
-        deadlines.append(deadline)
-        sem.release()
-
+        rpc_handler = imp.msg_handler(timestamp, input_message)
+        requests = []
+        for rpc_request, deadline in rpc_handler:
+            deadlines.append(deadline)
+            sem.release()
+            requests.append(rpc_request)
 
         # get rpc response and convert it to the output type
-        response = imp.rpc_handle(rpc_request)
-        print("response from server id=%d" % response.req_id)
+        for request in requests:
+            response = imp.rpc_handle(rpc_request)
+            logger.info("response from server id=%d", response.req_id)
         # result = imp.response_handler(response)
 
         heapq.heappush(result_heap, (imp.priority, time.time(), response))
@@ -120,7 +125,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
-        print("executing process_message")
+        logger.info("executing process_message")
         local_result_heap = []
         cloud_result_heap = []
 
@@ -163,7 +168,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     
             for thread in threads:
                 if not thread.is_alive():
-                    print("finished execution before deadline")
+                    logger.info("finished execution before deadline")
                     thread_completed = True
                     break
             time.sleep(0.001)
@@ -189,7 +194,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     
     def process_message_stream(self, timestamp: Timestamp, input_iterator: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
-        print("executing process_message_stream")
+        logger.info("executing process_message_stream")
         local_result_heap = []
         cloud_result_heap = []
 
@@ -234,7 +239,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         
                 for thread in threads:
                     if not thread.is_alive():
-                        print("finished execution before deadline")
+                        logger.info("finished execution before deadline")
                         thread_completed = True
                         break
                 time.sleep(0.001)
