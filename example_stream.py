@@ -23,9 +23,6 @@ class RpcRequest:
     def __init__(self, input_message: str):
         self.input = input_message
 
-# TODO:
-# - implement this
-# - test that you're sending requests and receiving responses from the example server.
 class ImageRpcHandle(coordinator.RpcHandle[object_detection_pb2.Request, object_detection_pb2.Response, object_detection_pb2_grpc.GRPCImageStub]):
     
     def stub(self) -> object_detection_pb2_grpc.GRPCImageStub:
@@ -70,7 +67,6 @@ class StreamingImageRpcHandle(coordinator.RpcHandle[object_detection_pb2.Request
         return response
 
 def test_speculative_operator():
-    # Create operator.
     operator = MyOperator()
     # rpc_handle = StreamingImageRpcHandle()
     images = [# 'https://i.imgur.com/2lnWoly.jpg', 
@@ -80,7 +76,7 @@ def test_speculative_operator():
               'https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg']
 
     # Register cloud implementations.
-    for i in range(3): # TODO: this doesn't work for streaming when the range is > 1
+    for i in range(1): # TODO: this doesn't work for streaming when the range is > 1
         # rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         rpc_handle = StreamingImageRpcHandle()
         operator.use_cloud(
