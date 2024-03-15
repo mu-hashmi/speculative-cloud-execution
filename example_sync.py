@@ -20,9 +20,6 @@ class RpcRequest:
     def __init__(self, input_message: str):
         self.input = input_message
 
-# TODO:
-# - implement this
-# - test that you're sending requests and receiving responses from the example server.
 class ImageRpcHandle(coordinator.RpcHandle[object_detection_pb2.Request, object_detection_pb2.Response, object_detection_pb2_grpc.GRPCImageStub]):
     
     def stub(self) -> object_detection_pb2_grpc.GRPCImageStub:
@@ -33,7 +30,6 @@ class ImageRpcHandle(coordinator.RpcHandle[object_detection_pb2.Request, object_
 
 
 def test_speculative_operator():
-    # Create operator.
     operator = MyOperator()
     rpc_handle = ImageRpcHandle()
     images = [#'https://i.imgur.com/2lnWoly.jpg', 
@@ -44,7 +40,6 @@ def test_speculative_operator():
 
     # Register cloud implementations.
     for i in range(3):
-        # rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         operator.use_cloud(
             rpc_handle,
             msg_handler,
@@ -52,6 +47,7 @@ def test_speculative_operator():
             priority=i,
         )
 
+    start_time = time.time()
     for i, img_url in enumerate(images):
         img = Image.open(requests.get(img_url, stream=True).raw)
         img_byte_arr = io.BytesIO()
@@ -62,14 +58,13 @@ def test_speculative_operator():
         timestamp = i
         message = img_byte_arr
         result = operator.process_message(timestamp, message)
-        #time.sleep(2.0) # to wait for each to get processed
-        # maybe block until results is non-empty? 
         if not result:
             print('result empty')
         else:
             print(result)
 
-        print(f"url: {img_url}")
+    elapsed_time = time.time() - start_time
+    print(f"sync took {elapsed_time} seconds to process all images")
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
     return object_detection_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)

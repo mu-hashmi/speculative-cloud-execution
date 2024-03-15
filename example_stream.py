@@ -77,7 +77,6 @@ def test_speculative_operator():
 
     # Register cloud implementations.
     for i in range(3): # must be equal to max_workers
-        # rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         rpc_handle = StreamingImageRpcHandle()
         operator.use_cloud(
             rpc_handle,
@@ -86,6 +85,7 @@ def test_speculative_operator():
             priority=i,
         )
 
+    start_time = time.time()
     for i, img_url in enumerate(images):
         img = Image.open(requests.get(img_url, stream=True).raw)
         img_byte_arr = io.BytesIO()
@@ -95,18 +95,17 @@ def test_speculative_operator():
 
         timestamp = i
         message = img_byte_arr
-        result = operator.process_message(timestamp, message)
-        #time.sleep(2.0) # to wait for each to get processed
-        # maybe block until results is non-empty? 
+        result = operator.process_message(timestamp, message) 
         if not result:
             print('result empty')
         else:
             print(result)
 
-        # print(f"url: {msg}")
+    elapsed_time = time.time() - start_time
+    print(f"streaming took {elapsed_time} seconds to process all images")
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
-    return object_detection_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=2.0, is_absolute=False)
+    return object_detection_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)
 
 def response_handler(input: object_detection_pb2.Response):
     pass

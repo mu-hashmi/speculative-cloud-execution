@@ -34,8 +34,6 @@ def process_image(image_data: bytes, obj_detector):
     logger.info(f"elapsed time: {elapsed_time}")
     return objs
 
-
-
 def process_dummy_image(image_data):
     return np.frombuffer(image_data.encode(encoding=ENCODING), dtype=np.uint8)
 
