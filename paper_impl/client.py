@@ -1,13 +1,14 @@
-import grpc
-from . import image_pb2
-from . import image_pb2_grpc
+import base64
 import random
 import time
 from os import listdir
 from os.path import isfile, join
-import base64
-import numpy as np
+
 import fire
+import grpc
+import numpy as np
+
+from . import image_pb2, image_pb2_grpc
 
 PORT = "12345"
 ENCODING = "ISO-8859-1"
@@ -30,7 +31,7 @@ def get_random_bytes(size):
 
 
 def process_image_sync(stub, images, num_requests, width, height, sleep):
-    print('calling client process_image_sync')
+    print("calling client process_image_sync")
     image_str = get_dummy_image_str(width, height)
     for i in range(num_requests):
         start_time = time.time()
@@ -91,11 +92,12 @@ def process_image_streaming(stub, byte_size, frequency):
         upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
         download_ms = 1e3 * (recv_time - response.recv_time)
         duration_ms = 1e3 * (time.time() - send_times[response.req_id])
-        print('response time:', recv_time - send_times[response.req_id])
+        print("response time:", recv_time - send_times[response.req_id])
         del start_times[response.req_id]
         del send_times[response.req_id]
-        print('received response with id', response.req_id)
+        print("received response with id", response.req_id)
         # (response.req_id, duration[response.req_id]))
+
 
 def process_image_streaming_muhammad(stub, byte_size, frequency):
     start_times = dict()
@@ -108,7 +110,6 @@ def process_image_streaming_muhammad(stub, byte_size, frequency):
         start_times[i] = time.time()
         max_concurrent_requests = 1.0 * frequency  # 1 seconds worth
         while True:
-
             start_times[i + 1] = start_times[i] + 1.0 / frequency
             # image_str = get_image_str(images)
             # request = image_pb2.Request(image_data=get_image_str(images), req_id = i)
@@ -132,14 +133,16 @@ def process_image_streaming_muhammad(stub, byte_size, frequency):
         upload_ms = 1e3 * (response.recv_time - send_times[response.req_id])
         download_ms = 1e3 * (recv_time - response.recv_time)
         duration_ms = 1e3 * (time.time() - send_times[response.req_id])
-        print('response time:', recv_time - send_times[response.req_id])
+        print("response time:", recv_time - send_times[response.req_id])
         del start_times[response.req_id]
         del send_times[response.req_id]
-        print('received response with id', response.req_id)
+        print("received response with id", response.req_id)
         # (response.req_id, duration[response.req_id]))
 
 
-def main(host: str, pattern: str, byte_size: int, frequency: float, height: int, delay: float):
+def main(
+    host: str, pattern: str, byte_size: int, frequency: float, height: int, delay: float
+):
     files = []  # Not using real images
     # image_folder = "images"
     # filenames = [f for f in listdir(image_folder) if isfile(join(image_folder, f))]

@@ -1,16 +1,16 @@
 import abc
 import functools
+import heapq
+import io
 import time
 from dataclasses import dataclass
 from threading import Semaphore, Thread
 from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
-import heapq
-import requests
-from transformers import pipeline
-from PIL import Image
-import io
 
 import grpc
+import requests
+from PIL import Image
+from transformers import pipeline
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
@@ -75,7 +75,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.thread = None
         self.local_result = None
         # self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
-        
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
@@ -101,14 +100,13 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         input_message: InputT,
         deadlines: List[Optional[float]],
         sem: Semaphore,
-        result_heap: List
+        result_heap: List,
     ):
         # get rpc request and deadline from message handler
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
 
         deadlines.append(deadline)
         sem.release()
-
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
@@ -126,7 +124,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # Run execute_local in a separate thread
         self.local_thread = Thread(
-            target=self.execute_local_separate_thread, args=(input_message, local_result_heap)
+            target=self.execute_local_separate_thread,
+            args=(input_message, local_result_heap),
         )
         self.local_thread.start()
         deadlines = []
@@ -160,20 +159,20 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             elapsed_time = time.time() - start_time
             if elapsed_time > min_deadline.seconds:
                 break
-    
+
             for thread in threads:
                 if not thread.is_alive():
                     print("finished execution before deadline")
                     thread_completed = True
                     break
             time.sleep(0.001)
-        
+
         if not thread_completed:
             raise Exception("No threads finished before deadline!")
-        
+
         while not local_result_heap and not cloud_result_heap:
             time.sleep(0.00001)
-        
+
         if local_result_heap:
             result = heapq.heappop(local_result_heap)
         else:
