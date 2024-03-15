@@ -76,7 +76,7 @@ def test_speculative_operator():
               'https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg']
 
     # Register cloud implementations.
-    for i in range(1): # TODO: this doesn't work for streaming when the range is > 1
+    for i in range(3): # must be equal to max_workers
         # rpc_handle = coordinator.RpcHandle(client.process_image_streaming)
         rpc_handle = StreamingImageRpcHandle()
         operator.use_cloud(
@@ -106,7 +106,7 @@ def test_speculative_operator():
         # print(f"url: {msg}")
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
-    return object_detection_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=1.5, is_absolute=False)
+    return object_detection_pb2.Request(image_data=input_message, req_id=timestamp), Deadline(seconds=2.0, is_absolute=False)
 
 def response_handler(input: object_detection_pb2.Response):
     pass

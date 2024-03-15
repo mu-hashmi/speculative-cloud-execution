@@ -80,7 +80,7 @@ def serve():
         ("grpc.max_receive_message_length", 1024 * 1024 * 1024),
         ("grpc.http2.write_buffer_size", 1),
     ]
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1), options=options)
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=3), options=options)
     object_detection_pb2_grpc.add_GRPCImageServicer_to_server(ImageServer(), server)
     server.add_insecure_port("[::]:" + PORT)
     print("------------------start Python GRPC server")
