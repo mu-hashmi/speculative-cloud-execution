@@ -1,7 +1,7 @@
 import grpc
 import logging
-import image_pb2
-import image_pb2_grpc
+from protos import object_detection_pb2
+from protos import object_detection_pb2_grpc
 import io
 import base64
 import numpy as np
@@ -24,9 +24,9 @@ ENCODING = "ISO-8859-1"
 # response_str = ''.join(choice(ascii_uppercase) for i in range(1000))
 RESPONSE = "".join("A" for i in range(1000))
 
-def process_image(image_data, obj_detector):
-    response = requests.get(image_data)
-    im = Image.open(io.BytesIO(response.content))
+def process_image(image_data: bytes, obj_detector):
+    # response = requests.get(image_data)
+    im = Image.open(io.BytesIO(image_data))
     logger.info("running object detector...")
     start_time = time.time()
     objs = obj_detector(im)
@@ -40,7 +40,7 @@ def process_dummy_image(image_data):
     return np.frombuffer(image_data.encode(encoding=ENCODING), dtype=np.uint8)
 
 
-class ImageServer(image_pb2_grpc.GRPCImageServicer):
+class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
     def __init__(self):
         self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
 
@@ -50,7 +50,7 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
         recv_time = time.time()
         detected_objects = process_image(request.image_data, self.obj_detector)
         # print(detected_objects)
-        response = image_pb2.Response(
+        response = object_detection_pb2.Response(
             detected_objects=detected_objects, req_id=request.req_id, recv_time=recv_time
         )
         return response
@@ -68,20 +68,20 @@ class ImageServer(image_pb2_grpc.GRPCImageServicer):
             # image_received = process_image(request.image_data)
             detected_objects = process_image(request.image_data, self.obj_detector)
             # print(image_received)
-            yield image_pb2.Response(
+            yield object_detection_pb2.Response(
                 detected_objects=detected_objects, req_id=request.req_id, recv_time=recv_time
             )
 
 
 def serve():
     options = [
-        ("grpc.max_message_length", 128 * 1024 * 1024),
-        ("grpc.max_send_message_length", 128 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 128 * 1024 * 1024),
+        ("grpc.max_message_length", 1024 * 1024 * 1024),
+        ("grpc.max_send_message_length", 1024 * 1024 * 1024),
+        ("grpc.max_receive_message_length", 1024 * 1024 * 1024),
         ("grpc.http2.write_buffer_size", 1),
     ]
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1), options=options)
-    image_pb2_grpc.add_GRPCImageServicer_to_server(ImageServer(), server)
+    object_detection_pb2_grpc.add_GRPCImageServicer_to_server(ImageServer(), server)
     server.add_insecure_port("[::]:" + PORT)
     print("------------------start Python GRPC server")
     server.start()

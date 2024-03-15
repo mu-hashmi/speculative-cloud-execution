@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package image;
+package object_detection;
 
 message BoundingBox {
     float xmin = 1;

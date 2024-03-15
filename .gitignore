@@ -160,3 +160,8 @@ cython_debug/
 #.idea/
 
 log/
+
+
+# Protobufs
+/protos/*.py
+/protos/*.pyi

@@ -31,9 +31,9 @@ class Request(_message.Message):
     __slots__ = ["image_data", "req_id"]
     IMAGE_DATA_FIELD_NUMBER: _ClassVar[int]
     REQ_ID_FIELD_NUMBER: _ClassVar[int]
-    image_data: str
+    image_data: bytes
     req_id: int
-    def __init__(self, image_data: _Optional[str] = ..., req_id: _Optional[int] = ...) -> None: ...
+    def __init__(self, image_data: _Optional[bytes] = ..., req_id: _Optional[int] = ...) -> None: ...
 
 class Response(_message.Message):
     __slots__ = ["detected_objects", "req_id", "recv_time"]
