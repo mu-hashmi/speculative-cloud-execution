@@ -2,6 +2,7 @@ import abc
 import functools
 import heapq
 import io
+import logging
 import time
 from dataclasses import dataclass
 from threading import Semaphore, Thread
@@ -11,6 +12,9 @@ import grpc
 import requests
 from PIL import Image
 from transformers import pipeline
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
@@ -110,7 +114,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
-        print("response from server id=%d" % response.req_id)
+        logger.info("response from server id=%d" % response.req_id)
         # result = imp.response_handler(response)
 
         heapq.heappush(result_heap, (imp.priority, time.time(), response))
@@ -118,7 +122,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
-        print("executing process_message")
+        logger.info("executing process_message")
         local_result_heap = []
         cloud_result_heap = []
 
@@ -162,7 +166,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
             for thread in threads:
                 if not thread.is_alive():
-                    print("finished execution before deadline")
+                    logger.info("finished execution before deadline")
                     thread_completed = True
                     break
             time.sleep(0.001)

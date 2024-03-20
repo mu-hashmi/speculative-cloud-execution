@@ -1,4 +1,5 @@
 import io
+import logging
 import queue
 import time
 from collections.abc import Iterator
@@ -9,6 +10,9 @@ import requests
 from coordinator import Deadline
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 RESPONSE = "".join("A" for i in range(1000))
 
@@ -48,7 +52,6 @@ class StreamingIterator:
         self.active = True
 
     def add_request(self, request):
-        print("adding request")
         self.queue.put(request)
 
     def __iter__(self):
@@ -110,18 +113,18 @@ def test_speculative_operator():
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
-        print(type(img_byte_arr), len(img_byte_arr))
+        # logger.info(type(img_byte_arr), len(img_byte_arr))
 
         timestamp = i
         message = img_byte_arr
         result = operator.process_message(timestamp, message)
         if not result:
-            print("result empty")
+            logger.info("result empty")
         else:
-            print(result)
+            logger.info(result)
 
     elapsed_time = time.time() - start_time
-    print(f"streaming took {elapsed_time} seconds to process all images")
+    logger.info(f"streaming took {elapsed_time} seconds to process all images")
 
 
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:

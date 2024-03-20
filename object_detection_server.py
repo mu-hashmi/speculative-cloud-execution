@@ -57,7 +57,6 @@ class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
 
     def ProcessImageStreaming(self, request_iterator, context):
         for request in request_iterator:
-            print("iterating")
             recv_time = time.time()
             time.sleep(1.0)
             logger.info(
