@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 from transformers import pipeline
+import argparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,9 +35,10 @@ def process_dummy_image(image_data):
 
 
 class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
-    def __init__(self):
+    def __init__(self, model_name: str):
         self.obj_detector = pipeline(
-            "object-detection", model="facebook/detr-resnet-50"
+            "object-detection",
+            model=model_name
         )
 
     def ProcessImageSync(self, request, context):
@@ -74,7 +76,7 @@ class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
             )
 
 
-def serve():
+def serve(port: str, model_name: str):
     options = [
         ("grpc.max_message_length", 1024 * 1024 * 1024),
         ("grpc.max_send_message_length", 1024 * 1024 * 1024),
@@ -82,13 +84,21 @@ def serve():
         ("grpc.http2.write_buffer_size", 1),
     ]
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=3), options=options)
-    object_detection_pb2_grpc.add_GRPCImageServicer_to_server(ImageServer(), server)
-    server.add_insecure_port("[::]:" + PORT)
-    print("------------------start Python GRPC server")
+    object_detection_pb2_grpc.add_GRPCImageServicer_to_server(
+        ImageServer(model_name), server
+    )
+    server.add_insecure_port("[::]:" + port)
+    print(f"------------------start Python GRPC server on port {port} with model {model_name}")
     server.start()
     server.wait_for_termination()
 
 
 if __name__ == "__main__":
     logging.basicConfig()
-    serve()
+    parser = argparse.ArgumentParser(description="GRPC Object Detection Server")
+    parser.add_argument("--port", type=str, default="12345", help="Port to run the server on")
+    parser.add_argument(
+        "--model", type=str, default="facebook/detr-resnet-50", help="Object detection model to use (facebook/detr-resnet-50 or facebook/detr-resnet-101)"
+        )
+    args = parser.parse_args()
+    serve(args.port, args.model)
