@@ -7,6 +7,7 @@ import requests
 from coordinator import Deadline
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
+from transformers import pipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,8 +16,20 @@ RESPONSE = "".join("A" for i in range(1000))
 
 
 class MyOperator(coordinator.SpeculativeOperator[int, int]):
+    def __init__(self):
+        self.obj_detector = pipeline(
+            "object-detection", model="facebook/detr-resnet-50"
+        )
+
     def execute_local(self, input_message: int) -> int:
-        pass
+        response = requests.get(input_message)
+        im = Image.open(io.BytesIO(response.content))
+        logger.info("running object detector locally...")
+        start_time = time.time()
+        objs = self.obj_detector(im)
+        elapsed_time = time.time() - start_time
+        logger.info(f"elapsed time: {elapsed_time}")
+        return objs
 
 
 class RpcRequest:
@@ -42,16 +55,10 @@ class ImageRpcHandle(
 
 def test_speculative_operator():
     operator = MyOperator()
-    rpc_handle = ImageRpcHandle()
-    images = [  #'https://i.imgur.com/2lnWoly.jpg',
-        "https://media-cldnry.s-nbcnews.com/image/upload/t_fit-1240w,f_auto,q_auto:best/rockcms/2023-08/230802-Waymo-driverless-taxi-ew-233p-e47145.jpg",
-        "https://farm8.staticflickr.com/7117/7624759864_f1940fbfd3_z.jpg",
-        "https://farm8.staticflickr.com/7419/10039650654_5d5a8b6706_z.jpg",
-        "https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg",
-    ]
-
-    # Register cloud implementations.
-    for i in range(3):
+    ports = [54321, 12345]
+    # register cloud implementations.
+    for i, port in enumerate(ports):
+        rpc_handle = ImageRpcHandle(port=port)
         operator.use_cloud(
             rpc_handle,
             msg_handler,
@@ -59,13 +66,20 @@ def test_speculative_operator():
             priority=i,
         )
 
+    images = [  #'https://i.imgur.com/2lnWoly.jpg',
+        "https://media-cldnry.s-nbcnews.com/image/upload/t_fit-1240w,f_auto,q_auto:best/rockcms/2023-08/230802-Waymo-driverless-taxi-ew-233p-e47145.jpg",
+        "https://farm8.staticflickr.com/7117/7624759864_f1940fbfd3_z.jpg",
+        "https://farm8.staticflickr.com/7419/10039650654_5d5a8b6706_z.jpg",
+        "https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg",
+    ]
+
     start_time = time.time()
     for i, img_url in enumerate(images):
         img = Image.open(requests.get(img_url, stream=True).raw)
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
-        # print(type(img_byte_arr), len(img_byte_arr))
+        logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
 
         timestamp = i
         message = img_byte_arr

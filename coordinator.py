@@ -78,23 +78,18 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
-        # self.obj_detector = pipeline("object-detection", model="facebook/detr-resnet-50")
+        # self.obj_detector = pipeline(
+        #     "object-detection", model="facebook/detr-resnet-50"
+        # )
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
-        response = requests.get(input_message)
-        im = Image.open(io.BytesIO(response.content))
-        print("running object detector locally...")
-        start_time = time.time()
-        objs = self.obj_detector(im)
-        elapsed_time = time.time() - start_time
-        print(f"elapsed time: {elapsed_time}")
-        return objs
+        raise NotImplementedError()
 
     def execute_local_separate_thread(self, input_message: InputT, result_heap: List):
         # self.local_result = self.execute_local(input_message)
         # time.sleep(1.2)
-        # heapq.heappush(self.results, (-1, time.time(), self.local_result))
+        # heapq.heappush(result_heap, (-1, time.time(), self.local_result))
         pass
 
     def execute_cloud_separate_thread(
