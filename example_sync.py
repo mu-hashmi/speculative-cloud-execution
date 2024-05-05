@@ -1,8 +1,10 @@
+import argparse
 import io
 import logging
 import time
 
 import coordinator
+import cv2
 import requests
 from coordinator import Deadline
 from PIL import Image
@@ -17,18 +19,20 @@ RESPONSE = "".join("A" for i in range(1000))
 
 class MyOperator(coordinator.SpeculativeOperator[int, int]):
     def __init__(self):
+        super().__init__()
         self.obj_detector = pipeline(
             "object-detection", model="facebook/detr-resnet-50"
         )
 
-    def execute_local(self, input_message: int) -> int:
-        response = requests.get(input_message)
-        im = Image.open(io.BytesIO(response.content))
+    def execute_local(self, input_message):
+        # response = requests.get(input_message)
+        # im = Image.open(io.BytesIO(response.content))
         logger.info("running object detector locally...")
+        im = Image.open(io.BytesIO(input_message))
         start_time = time.time()
         objs = self.obj_detector(im)
         elapsed_time = time.time() - start_time
-        logger.info(f"elapsed time: {elapsed_time}")
+        logger.info(f"elapsed time for local execution: {elapsed_time}")
         return objs
 
 
@@ -53,11 +57,10 @@ class ImageRpcHandle(
         return self.stub().ProcessImageSync(rpc_request)
 
 
-def test_speculative_operator():
+def test_speculative_operator(video_path=None, server_ports=None):
     operator = MyOperator()
-    ports = [54321, 12345]
     # register cloud implementations.
-    for i, port in enumerate(ports):
+    for i, port in enumerate(server_ports):
         rpc_handle = ImageRpcHandle(port=port)
         operator.use_cloud(
             rpc_handle,
@@ -66,28 +69,39 @@ def test_speculative_operator():
             priority=i,
         )
 
-    images = [  #'https://i.imgur.com/2lnWoly.jpg',
-        "https://media-cldnry.s-nbcnews.com/image/upload/t_fit-1240w,f_auto,q_auto:best/rockcms/2023-08/230802-Waymo-driverless-taxi-ew-233p-e47145.jpg",
-        "https://farm8.staticflickr.com/7117/7624759864_f1940fbfd3_z.jpg",
-        "https://farm8.staticflickr.com/7419/10039650654_5d5a8b6706_z.jpg",
-        "https://farm8.staticflickr.com/7135/8156447421_191b777e05_z.jpg",
-    ]
-
     start_time = time.time()
-    for i, img_url in enumerate(images):
-        img = Image.open(requests.get(img_url, stream=True).raw)
+    vidcap = (
+        video_path if video_path is not None else 1
+    )  # use filepath if provided, else load from webcam (1)
+
+    logger.info(f"vidcap = {vidcap}")
+    cap = cv2.VideoCapture(vidcap)
+    fps = cap.get(cv2.CAP_PROP_FPS)  # needed to send to server at same frequency
+    frame_id = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+
+        if not ret or frame_id == 60:
+            logger.warning(f"Can't receive frame or video ended on frame {frame_id}")
+            break
+
+        frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format="PNG")
+        frame_pil.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
         logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
-
-        timestamp = i
         message = img_byte_arr
-        result = operator.process_message(timestamp, message)
+
+        result = operator.process_message(frame_id, message)
+        time.sleep(1.0 / fps)  # wait for duration of a frame before proceeding
+
         if not result:
             logger.info("result empty")
         else:
-            logger.info(result)
+            logger.info(f"result = {result}")
+
+        frame_id += 1
 
     elapsed_time = time.time() - start_time
     logger.info(f"sync took {elapsed_time} seconds to process all images")
@@ -96,7 +110,7 @@ def test_speculative_operator():
 def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
     return object_detection_pb2.Request(
         image_data=input_message, req_id=timestamp
-    ), Deadline(seconds=1.5, is_absolute=False)
+    ), Deadline(seconds=3.0, is_absolute=False)
 
 
 def response_handler(input: object_detection_pb2.Response):
@@ -104,4 +118,11 @@ def response_handler(input: object_detection_pb2.Response):
 
 
 if __name__ == "__main__":
-    test_speculative_operator()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--video", help="Path to the input video file")
+    parser.add_argument(
+        "--ports", nargs="+", type=int, help="List of server ports", required=True
+    )
+    args = parser.parse_args()
+
+    test_speculative_operator(video_path=args.video, server_ports=args.ports)

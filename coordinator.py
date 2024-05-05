@@ -78,19 +78,15 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
-        # self.obj_detector = pipeline(
-        #     "object-detection", model="facebook/detr-resnet-50"
-        # )
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
         raise NotImplementedError()
 
     def execute_local_separate_thread(self, input_message: InputT, result_heap: List):
-        # self.local_result = self.execute_local(input_message)
+        self.local_result = self.execute_local(input_message)
         # time.sleep(1.2)
-        # heapq.heappush(result_heap, (-1, time.time(), self.local_result))
-        pass
+        heapq.heappush(result_heap, (-1, time.time(), self.local_result))
 
     def execute_cloud_separate_thread(
         self,
@@ -102,6 +98,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         result_heap: List,
     ):
         # get rpc request and deadline from message handler
+        start_time = time.time()
         rpc_request, deadline = imp.message_handler(timestamp, input_message)
 
         deadlines.append(deadline)
@@ -109,6 +106,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
 
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
+        elapsed_time = time.time() - start_time
+        logger.info(
+            f"Cloud implementation #{imp.priority} took {elapsed_time:.3f} s total"
+        )
         logger.info("response from server id=%d" % response.req_id)
         # result = imp.response_handler(response)
 
