@@ -23,16 +23,18 @@ class MyOperator(coordinator.SpeculativeOperator[int, int]):
         self.obj_detector = pipeline(
             "object-detection", model="facebook/detr-resnet-50"
         )
+        self.local_ex_times = []
 
     def execute_local(self, input_message):
         # response = requests.get(input_message)
         # im = Image.open(io.BytesIO(response.content))
-        logger.info("running object detector locally...")
+        # logger.info("running object detector locally...")
         im = Image.open(io.BytesIO(input_message))
-        start_time = time.time()
+        # start_time = time.time()
         objs = self.obj_detector(im)
-        elapsed_time = time.time() - start_time
-        logger.info(f"elapsed time for local execution: {elapsed_time}")
+        # elapsed_time = time.time() - start_time
+        # self.local_ex_times.append(elapsed_time)
+        # logger.info(f"elapsed time for local execution: {elapsed_time}")
         return objs
 
 
@@ -79,10 +81,12 @@ def test_speculative_operator(video_path=None, server_ports=None):
     fps = cap.get(cv2.CAP_PROP_FPS)  # needed to send to server at same frequency
     frame_id = 0
 
+    specop_times = []
+
     while cap.isOpened():
         ret, frame = cap.read()
 
-        if not ret or frame_id == 60:
+        if not ret or frame_id == 30:
             logger.warning(f"Can't receive frame or video ended on frame {frame_id}")
             break
 
@@ -93,7 +97,11 @@ def test_speculative_operator(video_path=None, server_ports=None):
         logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
         message = img_byte_arr
 
+        specop_start_time = time.time()
         result = operator.process_message(frame_id, message)
+        specop_elapsed_time = time.time() - specop_start_time
+        specop_times.append(specop_elapsed_time)
+
         time.sleep(1.0 / fps)  # wait for duration of a frame before proceeding
 
         if not result:
@@ -102,6 +110,20 @@ def test_speculative_operator(video_path=None, server_ports=None):
             logger.info(f"result = {result}")
 
         frame_id += 1
+
+    mean_local_time = sum(operator.local_ex_times) / len(operator.local_ex_times)
+    mean_cloud_times = {}
+    for imp in operator.cloud_ex_times:
+        mean_cloud_times[imp] = sum(operator.cloud_ex_times[imp]) / len(
+            operator.cloud_ex_times[imp]
+        )
+    mean_spec_time = sum(specop_times) / len(specop_times)
+
+    logger.info(f"mean local time: {mean_local_time:.3f}")
+    for imp in mean_cloud_times:
+        logger.info(f"mean {imp} cloud time: {mean_cloud_times[imp]:.3f}")
+
+    logger.info(f"mean speculative op time: {mean_spec_time:.3f}")
 
     elapsed_time = time.time() - start_time
     logger.info(f"sync took {elapsed_time} seconds to process all images")

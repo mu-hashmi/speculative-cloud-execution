@@ -4,6 +4,7 @@ import heapq
 import io
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from threading import Semaphore, Thread
 from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
@@ -78,13 +79,19 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.implementations = []
         self.thread = None
         self.local_result = None
+        self.cloud_ex_times = defaultdict(list)
+        self.local_ex_times = []
 
     @abc.abstractmethod
     def execute_local(self, input_message: InputT) -> OutputT:
         raise NotImplementedError()
 
     def execute_local_separate_thread(self, input_message: InputT, result_heap: List):
+        start_time = time.time()
         self.local_result = self.execute_local(input_message)
+        elapsed_time = time.time() - start_time
+        self.local_ex_times.append(elapsed_time)
+        logger.info(f"Local ex took {elapsed_time:.3f} s")
         # time.sleep(1.2)
         heapq.heappush(result_heap, (-1, time.time(), self.local_result))
 
@@ -107,6 +114,7 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # get rpc response and convert it to the output type
         response = imp.rpc_handle(rpc_request)
         elapsed_time = time.time() - start_time
+        self.cloud_ex_times[imp.priority].append(elapsed_time)
         logger.info(
             f"Cloud implementation #{imp.priority} took {elapsed_time:.3f} s total"
         )
