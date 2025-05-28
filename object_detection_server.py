@@ -1,3 +1,4 @@
+import argparse
 import io
 import logging
 import time
@@ -8,7 +9,6 @@ import numpy as np
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 from transformers import pipeline
-import argparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ RESPONSE = "".join("A" for i in range(1000))
 def process_image(image_data: bytes, obj_detector):
     # response = requests.get(image_data)
     im = Image.open(io.BytesIO(image_data))
-    logger.info("running object detector...")
+    logger.info("running object detector on server...")
     start_time = time.time()
     objs = obj_detector(im)
     elapsed_time = time.time() - start_time
@@ -36,10 +36,7 @@ def process_dummy_image(image_data):
 
 class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
     def __init__(self, model_name: str):
-        self.obj_detector = pipeline(
-            "object-detection",
-            model=model_name
-        )
+        self.obj_detector = pipeline("object-detection", model=model_name)
 
     def ProcessImageSync(self, request, context):
         logger.info(
@@ -88,7 +85,9 @@ def serve(port: str, model_name: str):
         ImageServer(model_name), server
     )
     server.add_insecure_port("[::]:" + port)
-    print(f"------------------start Python GRPC server on port {port} with model {model_name}")
+    print(
+        f"------------------start Python GRPC server on port {port} with model {model_name}"
+    )
     server.start()
     server.wait_for_termination()
 
@@ -96,9 +95,14 @@ def serve(port: str, model_name: str):
 if __name__ == "__main__":
     logging.basicConfig()
     parser = argparse.ArgumentParser(description="GRPC Object Detection Server")
-    parser.add_argument("--port", type=str, default="12345", help="Port to run the server on")
     parser.add_argument(
-        "--model", type=str, default="facebook/detr-resnet-50", help="Object detection model to use (facebook/detr-resnet-50 or facebook/detr-resnet-101)"
-        )
+        "--port", type=str, default="12345", help="Port to run the server on"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="facebook/detr-resnet-50",
+        help="Object detection model to use (facebook/detr-resnet-50 or facebook/detr-resnet-101)",
+    )
     args = parser.parse_args()
     serve(args.port, args.model)

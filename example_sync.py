@@ -2,6 +2,7 @@ import argparse
 import io
 import logging
 import time
+from statistics import median
 
 import coordinator
 import cv2
@@ -94,36 +95,43 @@ def test_speculative_operator(video_path=None, server_ports=None):
         img_byte_arr = io.BytesIO()
         frame_pil.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
-        logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
+        # logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
         message = img_byte_arr
 
         specop_start_time = time.time()
         result = operator.process_message(frame_id, message)
         specop_elapsed_time = time.time() - specop_start_time
         specop_times.append(specop_elapsed_time)
+        logger.info(
+            f"speculative execution time on frame {frame_id}: {specop_elapsed_time:.3f}"
+        )
 
         time.sleep(1.0 / fps)  # wait for duration of a frame before proceeding
 
         if not result:
             logger.info("result empty")
-        else:
-            logger.info(f"result = {result}")
+        # else:
+        #     logger.info(f"result = {result}")
 
         frame_id += 1
 
+    median_local_time = median(operator.local_ex_times)
     mean_local_time = sum(operator.local_ex_times) / len(operator.local_ex_times)
     mean_cloud_times = {}
+    median_cloud_times = {}
     for imp in operator.cloud_ex_times:
         mean_cloud_times[imp] = sum(operator.cloud_ex_times[imp]) / len(
             operator.cloud_ex_times[imp]
         )
+        median_cloud_times[imp] = median(operator.cloud_ex_times[imp])
     mean_spec_time = sum(specop_times) / len(specop_times)
+    median_spec_time = median(specop_times)
 
-    logger.info(f"mean local time: {mean_local_time:.3f}")
-    for imp in mean_cloud_times:
-        logger.info(f"mean {imp} cloud time: {mean_cloud_times[imp]:.3f}")
+    logger.info(f"median local time: {median_local_time:.3f}")
+    for imp in median_cloud_times:
+        logger.info(f"median {imp} cloud time: {mean_cloud_times[imp]:.3f}")
 
-    logger.info(f"mean speculative op time: {mean_spec_time:.3f}")
+    logger.info(f"median speculative op time: {median_spec_time:.3f}")
 
     elapsed_time = time.time() - start_time
     logger.info(f"sync took {elapsed_time} seconds to process all images")
