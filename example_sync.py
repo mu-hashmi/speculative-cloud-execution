@@ -1,8 +1,14 @@
 import argparse
 import io
 import logging
+import os
 import time
+import warnings
 from statistics import median
+
+# Suppress PyTorch warnings
+os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
+warnings.filterwarnings("ignore", category=UserWarning)
 
 import coordinator
 import cv2
@@ -27,15 +33,8 @@ class MyOperator(coordinator.SpeculativeOperator[int, int]):
         self.local_ex_times = []
 
     def execute_local(self, input_message):
-        # response = requests.get(input_message)
-        # im = Image.open(io.BytesIO(response.content))
-        # logger.info("running object detector locally...")
         im = Image.open(io.BytesIO(input_message))
-        # start_time = time.time()
         objs = self.obj_detector(im)
-        # elapsed_time = time.time() - start_time
-        # self.local_ex_times.append(elapsed_time)
-        # logger.info(f"elapsed time for local execution: {elapsed_time}")
         return objs
 
 
@@ -149,7 +148,7 @@ def response_handler(input: object_detection_pb2.Response):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video", help="Path to the input video file")
+    parser.add_argument("--video", type=str, help="Path to the input video file")
     parser.add_argument(
         "--ports", nargs="+", type=int, help="List of server ports", required=True
     )

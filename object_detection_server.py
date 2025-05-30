@@ -1,8 +1,14 @@
 import argparse
 import io
 import logging
+import os
 import time
+import warnings
 from concurrent import futures
+
+# Suppress PyTorch warnings
+os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
+warnings.filterwarnings("ignore", category=UserWarning)
 
 import grpc
 import numpy as np
