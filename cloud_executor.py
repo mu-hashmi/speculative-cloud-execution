@@ -13,8 +13,22 @@ import grpc
 import requests
 from PIL import Image
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def configure_logging(verbose=False):
+    """Configure logging level based on verbosity.
+
+    Args:
+        verbose: If True, set logging level to INFO, otherwise to WARNING
+    """
+    if verbose:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.WARNING)
+
+
+configure_logging(False)
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")

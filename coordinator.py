@@ -16,10 +16,30 @@ from cloud_executor import (
     RpcResponse,
     RpcStub,
     Timestamp,
+    configure_logging,
     execute_cloud_separate_thread,
     logger,
     register_implementation,
 )
+
+# Setup logger - will be configured based on verbosity
+coordinator_logger = logging.getLogger(__name__)
+
+
+def configure_coordinator_logging(verbose=False):
+    """Configure logging level based on verbosity.
+
+    Args:
+        verbose: If True, set logging level to INFO, otherwise to WARNING
+    """
+    if verbose:
+        coordinator_logger.setLevel(logging.INFO)
+    else:
+        coordinator_logger.setLevel(logging.WARNING)
+
+
+# Default to non-verbose
+configure_coordinator_logging(False)
 
 
 def wait_for_first_completed_thread(
@@ -50,7 +70,7 @@ def wait_for_first_completed_thread(
 
         for thread in threads:
             if not thread.is_alive():
-                logger.info("finished execution before deadline")
+                coordinator_logger.info("finished execution before deadline")
                 thread_completed = True
                 break
         time.sleep(0.001)
@@ -95,11 +115,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         self.local_result = self.execute_local(input_message)
         elapsed_time = time.time() - start_time
         self.local_ex_times.append(elapsed_time)
-        logger.info(f"Local ex took {elapsed_time:.3f} s")
+        coordinator_logger.info(f"Local ex took {elapsed_time:.3f} s")
         heapq.heappush(result_heap, (-1, time.time(), self.local_result))
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
-        logger.info("executing process_message")
+        coordinator_logger.info("executing process_message")
         local_result_heap = []
         cloud_result_heap = []
 

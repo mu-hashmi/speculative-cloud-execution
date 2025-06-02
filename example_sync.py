@@ -13,11 +13,13 @@ warnings.filterwarnings("ignore", category=UserWarning)
 import cloud_executor
 import coordinator
 import cv2
-from cloud_executor import Deadline
+from cloud_executor import Deadline, configure_logging
+from coordinator import configure_coordinator_logging
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 from transformers import pipeline
 
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -196,6 +198,14 @@ if __name__ == "__main__":
         required=True,
         help="List of server ports where object detection servers are running",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging of internal operations",
+    )
     args = parser.parse_args()
+
+    configure_logging(args.verbose)
+    configure_coordinator_logging(args.verbose)
 
     process_video(video_path=args.video, server_ports=args.ports)
