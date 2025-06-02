@@ -1,3 +1,8 @@
+# WARNING: This file is a work in progress and is not yet functional.
+# It is included in the repository to demonstrate the planned streaming API.
+# Please use example_sync.py for working examples of speculative cloud execution.
+# TODO: Implement proper streaming API integration with cloud_executor and coordinator
+
 import io
 import logging
 import queue
