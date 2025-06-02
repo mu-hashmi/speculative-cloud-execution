@@ -42,16 +42,13 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         elapsed_time = time.time() - start_time
         self.local_ex_times.append(elapsed_time)
         logger.info(f"Local ex took {elapsed_time:.3f} s")
-        # time.sleep(1.2)
         heapq.heappush(result_heap, (-1, time.time(), self.local_result))
 
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
-        # needs to call execute_local after calling all the message handlers
         logger.info("executing process_message")
         local_result_heap = []
         cloud_result_heap = []
 
-        # Run execute_local in a separate thread
         self.local_thread = Thread(
             target=self.execute_local_separate_thread,
             args=(input_message, local_result_heap),
@@ -77,7 +74,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
 
-        # start all cloud threads
         start_time = time.time()
         for thread in cloud_threads:
             thread.start()

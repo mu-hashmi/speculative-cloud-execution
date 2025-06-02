@@ -136,7 +136,5 @@ def execute_cloud_separate_thread(
     cloud_ex_times[imp.priority].append(elapsed_time)
     logger.info(f"Cloud implementation #{imp.priority} took {elapsed_time:.3f} s total")
     logger.info("response from server id=%d" % response.req_id)
-    # result = imp.response_handler(response)
 
     heapq.heappush(result_heap, (imp.priority, time.time(), response))
-    # print(result_heap)
