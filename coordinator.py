@@ -1,75 +1,25 @@
 import abc
-import functools
 import heapq
-import io
 import logging
 import time
 from collections import defaultdict
-from dataclasses import dataclass
 from threading import Semaphore, Thread
-from typing import Callable, Generic, List, Optional, Self, Tuple, TypeVar
+from typing import Generic, List
 
-import grpc
-import requests
-from PIL import Image
-from transformers import pipeline
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-InputT = TypeVar("InputT")
-OutputT = TypeVar("OutputT")
-RpcRequest = TypeVar("RpcRequest")
-RpcResponse = TypeVar("RpcResponse")
-RpcStub = TypeVar("RpcStub")
-
-
-class Timestamp:
-    pass
-
-
-@dataclass
-class Deadline:
-    seconds: float
-    is_absolute: bool
-
-    @classmethod
-    def absolute(cls, unix_time_seconds: float) -> Self:
-        cls(seconds=unix_time_seconds, is_absolute=True)
-
-    @classmethod
-    def relative(cls, seconds: float) -> Self:
-        cls(seconds=seconds, is_absolute=False)
-
-    def to_absolute(self, start_time: float) -> Self:
-        if self.is_absolute:
-            return self
-        return Deadline(start_time + self.seconds, is_absolute=True)
-
-
-class RpcHandle(Generic[RpcRequest, RpcResponse, RpcStub], abc.ABC):
-    def __init__(self, host: str = "localhost", port: int = 12345):
-        self.channel = grpc.insecure_channel(f"{host}:{port}")
-
-    @property
-    @functools.cache
-    @abc.abstractmethod
-    def stub(self) -> RpcStub:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def __call__(self, rpc_request: RpcRequest) -> RpcResponse:
-        raise NotImplementedError
-
-
-@dataclass
-class Implementation:
-    rpc_handle: RpcHandle[RpcRequest, RpcResponse, RpcStub]
-    message_handler: Callable[
-        [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
-    ]
-    response_handler: Callable[[RpcResponse], OutputT]
-    priority: int
+from cloud_executor import (
+    Deadline,
+    Implementation,
+    InputT,
+    OutputT,
+    RpcHandle,
+    RpcRequest,
+    RpcResponse,
+    RpcStub,
+    Timestamp,
+    execute_cloud_separate_thread,
+    logger,
+    register_implementation,
+)
 
 
 class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
@@ -95,35 +45,6 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # time.sleep(1.2)
         heapq.heappush(result_heap, (-1, time.time(), self.local_result))
 
-    def execute_cloud_separate_thread(
-        self,
-        imp: Implementation,
-        timestamp: Timestamp,
-        input_message: InputT,
-        deadlines: List[Optional[float]],
-        sem: Semaphore,
-        result_heap: List,
-    ):
-        # get rpc request and deadline from message handler
-        start_time = time.time()
-        rpc_request, deadline = imp.message_handler(timestamp, input_message)
-
-        deadlines.append(deadline)
-        sem.release()
-
-        # get rpc response and convert it to the output type
-        response = imp.rpc_handle(rpc_request)
-        elapsed_time = time.time() - start_time
-        self.cloud_ex_times[imp.priority].append(elapsed_time)
-        logger.info(
-            f"Cloud implementation #{imp.priority} took {elapsed_time:.3f} s total"
-        )
-        logger.info("response from server id=%d" % response.req_id)
-        # result = imp.response_handler(response)
-
-        heapq.heappush(result_heap, (imp.priority, time.time(), response))
-        # print(result_heap)
-
     def process_message(self, timestamp: Timestamp, input_message: InputT) -> OutputT:
         # needs to call execute_local after calling all the message handlers
         logger.info("executing process_message")
@@ -142,8 +63,16 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         # create a thread for each cloud implementation
         cloud_threads = [
             Thread(
-                target=self.execute_cloud_separate_thread,
-                args=(imp, timestamp, input_message, deadlines, sem, cloud_result_heap),
+                target=execute_cloud_separate_thread,
+                args=(
+                    imp,
+                    timestamp,
+                    input_message,
+                    deadlines,
+                    sem,
+                    cloud_result_heap,
+                    self.cloud_ex_times,
+                ),
             )
             for imp in sorted(self.implementations, key=lambda x: x.priority)
         ]
@@ -197,10 +126,8 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
     def use_cloud(
         self,
         rpc_handle: RpcHandle[RpcRequest, RpcResponse, RpcStub],
-        message_handler: Callable[
-            [Timestamp, InputT], Optional[Tuple[RpcRequest, Deadline]]
-        ],
-        response_handler: Callable[[RpcResponse], OutputT],
+        message_handler: callable,
+        response_handler: callable,
         priority: int,
     ):
         """Registers a cloud implementation for the operator.
@@ -218,12 +145,10 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
                 return responses within their deadlines, the result from the the
                 implementation with the highest priority is selected.
         """
-        # store rpc_handle, msg_handler, priority inside a data structure
-        self.implementations.append(
-            Implementation(
-                rpc_handle=rpc_handle,
-                message_handler=message_handler,
-                response_handler=response_handler,
-                priority=priority,
-            )
+        self.implementations = register_implementation(
+            self.implementations,
+            rpc_handle=rpc_handle,
+            message_handler=message_handler,
+            response_handler=response_handler,
+            priority=priority,
         )

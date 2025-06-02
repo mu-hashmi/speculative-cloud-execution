@@ -10,15 +10,18 @@ from statistics import median
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 warnings.filterwarnings("ignore", category=UserWarning)
 
+import cloud_executor
 import coordinator
 import cv2
-from coordinator import Deadline
+from cloud_executor import Deadline
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 from transformers import pipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+FRAME_LIMIT = 30
 
 
 class ObjectDetectionOperator(coordinator.SpeculativeOperator[int, int]):
@@ -40,7 +43,7 @@ class ObjectDetectionOperator(coordinator.SpeculativeOperator[int, int]):
 
 
 class ImageRpcHandle(
-    coordinator.RpcHandle[
+    cloud_executor.RpcHandle[
         object_detection_pb2.Request,
         object_detection_pb2.Response,
         object_detection_pb2_grpc.GRPCImageStub,
@@ -57,6 +60,36 @@ class ImageRpcHandle(
     ) -> object_detection_pb2.Response:
         """Send a synchronous request to the object detection server."""
         return self.stub().ProcessImageSync(rpc_request)
+
+
+def report_performance_statistics(operator, specop_times, total_time, frame_count):
+    """Report performance statistics for video processing.
+
+    Args:
+        operator: The SpeculativeOperator instance used for processing
+        specop_times: List of execution times for each speculative operation
+        total_time: Total processing time
+        frame_count: Number of frames processed
+    """
+    if operator.local_ex_times:
+        median_local_time = median(operator.local_ex_times)
+        logger.info(f"Median local execution time: {median_local_time:.3f}s")
+
+    for imp in operator.cloud_ex_times:
+        if operator.cloud_ex_times[imp]:
+            median_cloud_time = median(operator.cloud_ex_times[imp])
+            logger.info(
+                f"Median cloud execution time (impl {imp}): {median_cloud_time:.3f}s"
+            )
+
+    if specop_times:
+        median_spec_time = median(specop_times)
+        logger.info(f"Median speculative execution time: {median_spec_time:.3f}s")
+
+    logger.info(f"Total processing time: {total_time:.3f}s")
+    logger.info(
+        f"Successfully processed {frame_count} frames using speculative execution"
+    )
 
 
 def process_video(video_path, server_ports):
@@ -91,7 +124,7 @@ def process_video(video_path, server_ports):
     while cap.isOpened():
         ret, frame = cap.read()
 
-        if not ret:
+        if not ret or frame_id == FRAME_LIMIT:
             logger.info(f"Finished processing video after {frame_id} frames")
             break
 
@@ -117,25 +150,8 @@ def process_video(video_path, server_ports):
 
     cap.release()
 
-    # Report performance statistics
-    if operator.local_ex_times:
-        median_local_time = median(operator.local_ex_times)
-        logger.info(f"Median local execution time: {median_local_time:.3f}s")
-
-    for imp in operator.cloud_ex_times:
-        if operator.cloud_ex_times[imp]:
-            median_cloud_time = median(operator.cloud_ex_times[imp])
-            logger.info(
-                f"Median cloud execution time (impl {imp}): {median_cloud_time:.3f}s"
-            )
-
-    if specop_times:
-        median_spec_time = median(specop_times)
-        logger.info(f"Median speculative execution time: {median_spec_time:.3f}s")
-
     total_time = time.time() - start_time
-    logger.info(f"Total processing time: {total_time:.3f}s")
-    logger.info(f"Successfully processed {frame_id} frames using speculative execution")
+    report_performance_statistics(operator, specop_times, total_time, frame_id)
 
 
 def msg_handler(
