@@ -4,7 +4,7 @@ import logging
 import time
 from collections import defaultdict
 from threading import Semaphore, Thread
-from typing import Generic, List
+from typing import Any, Generic, List, Tuple
 
 from cloud_executor import (
     Deadline,
@@ -20,6 +20,60 @@ from cloud_executor import (
     logger,
     register_implementation,
 )
+
+
+def wait_for_first_completed_thread(
+    threads: List[Thread],
+    start_time: float,
+    min_deadline: Deadline,
+    local_result_heap: List,
+    cloud_result_heap: List,
+) -> Tuple[bool, Any]:
+    """Wait for the first thread to complete or until deadline expires.
+
+    Args:
+        threads: List of threads to monitor
+        start_time: Time when processing started
+        min_deadline: Minimum deadline across all implementations
+        local_result_heap: Heap storing local results
+        cloud_result_heap: Heap storing cloud results
+
+    Returns:
+        Tuple of (thread_completed flag, result)
+    """
+    thread_completed = False
+
+    while not thread_completed:
+        elapsed_time = time.time() - start_time
+        if elapsed_time > min_deadline.seconds:
+            break
+
+        for thread in threads:
+            if not thread.is_alive():
+                logger.info("finished execution before deadline")
+                thread_completed = True
+                break
+        time.sleep(0.001)
+
+    if not thread_completed:
+        raise Exception("No threads finished before deadline!")
+
+    while not local_result_heap and not cloud_result_heap:
+        time.sleep(0.00001)
+
+    if local_result_heap:
+        result = heapq.heappop(local_result_heap)
+    else:
+        result = heapq.heappop(cloud_result_heap)
+
+    # clean up heaps
+    while local_result_heap:
+        heapq.heappop(local_result_heap)
+
+    while cloud_result_heap:
+        heapq.heappop(cloud_result_heap)
+
+    return result
 
 
 class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
@@ -85,37 +139,11 @@ class SpeculativeOperator(abc.ABC, Generic[InputT, OutputT]):
         min_deadline = min(deadlines, key=lambda deadline: deadline.seconds)
 
         threads = [self.local_thread] + cloud_threads
-        thread_completed = False
 
-        # get the first completed thread
-        while not thread_completed:
-            elapsed_time = time.time() - start_time
-            if elapsed_time > min_deadline.seconds:
-                break
-
-            for thread in threads:
-                if not thread.is_alive():
-                    logger.info("finished execution before deadline")
-                    thread_completed = True
-                    break
-            time.sleep(0.001)
-
-        if not thread_completed:
-            raise Exception("No threads finished before deadline!")
-
-        while not local_result_heap and not cloud_result_heap:
-            time.sleep(0.00001)
-
-        if local_result_heap:
-            result = heapq.heappop(local_result_heap)
-        else:
-            result = heapq.heappop(cloud_result_heap)
-
-        while local_result_heap:
-            heapq.heappop(local_result_heap)
-
-        while cloud_result_heap:
-            heapq.heappop(cloud_result_heap)
+        # Wait for first completed thread and get result
+        result = wait_for_first_completed_thread(
+            threads, start_time, min_deadline, local_result_heap, cloud_result_heap
+        )
 
         return result
 
