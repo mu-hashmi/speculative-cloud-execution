@@ -12,7 +12,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 import coordinator
 import cv2
-import requests
 from coordinator import Deadline
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
@@ -21,26 +20,23 @@ from transformers import pipeline
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-RESPONSE = "".join("A" for i in range(1000))
 
+class ObjectDetectionOperator(coordinator.SpeculativeOperator[int, int]):
+    """Operator that performs object detection locally and in the cloud,
+    then using whichever result arrives first.
+    """
 
-class MyOperator(coordinator.SpeculativeOperator[int, int]):
     def __init__(self):
         super().__init__()
         self.obj_detector = pipeline(
             "object-detection", model="facebook/detr-resnet-50"
         )
-        self.local_ex_times = []
 
     def execute_local(self, input_message):
+        """Execute object detection locally on the input image data."""
         im = Image.open(io.BytesIO(input_message))
         objs = self.obj_detector(im)
         return objs
-
-
-class RpcRequest:
-    def __init__(self, input_message: str):
-        self.input = input_message
 
 
 class ImageRpcHandle(
@@ -50,18 +46,29 @@ class ImageRpcHandle(
         object_detection_pb2_grpc.GRPCImageStub,
     ]
 ):
+    """RPC handle for communicating with the object detection server."""
+
     def stub(self) -> object_detection_pb2_grpc.GRPCImageStub:
+        """Create a gRPC stub for the object detection service."""
         return object_detection_pb2_grpc.GRPCImageStub(self.channel)
 
     def __call__(
         self, rpc_request: object_detection_pb2.Request
     ) -> object_detection_pb2.Response:
+        """Send a synchronous request to the object detection server."""
         return self.stub().ProcessImageSync(rpc_request)
 
 
-def test_speculative_operator(video_path=None, server_ports=None):
-    operator = MyOperator()
-    # register cloud implementations.
+def process_video(video_path, server_ports):
+    """Process a video using speculative execution with local and cloud detection.
+
+    Args:
+        video_path: Path to the video file to process
+        server_ports: List of ports where object detection servers are running
+    """
+    operator = ObjectDetectionOperator()
+
+    # Register cloud implementations for each provided server port
     for i, port in enumerate(server_ports):
         rpc_handle = ImageRpcHandle(port=port)
         operator.use_cloud(
@@ -71,87 +78,108 @@ def test_speculative_operator(video_path=None, server_ports=None):
             priority=i,
         )
 
+    logger.info(f"Processing video: {video_path}")
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    logger.info(f"Video has {total_frames} frames at {fps} FPS")
+
     start_time = time.time()
-    vidcap = (
-        video_path if video_path is not None else 1
-    )  # use filepath if provided, else load from webcam (1)
-
-    logger.info(f"vidcap = {vidcap}")
-    cap = cv2.VideoCapture(vidcap)
-    fps = cap.get(cv2.CAP_PROP_FPS)  # needed to send to server at same frequency
     frame_id = 0
-
     specop_times = []
 
     while cap.isOpened():
         ret, frame = cap.read()
 
-        if not ret or frame_id == 30:
-            logger.warning(f"Can't receive frame or video ended on frame {frame_id}")
+        if not ret:
+            logger.info(f"Finished processing video after {frame_id} frames")
             break
 
+        # Convert frame to format suitable for processing
         frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         img_byte_arr = io.BytesIO()
         frame_pil.save(img_byte_arr, format="PNG")
         img_byte_arr = img_byte_arr.getvalue()
-        # logger.info(f"{type(img_byte_arr)} {len(img_byte_arr)}")
-        message = img_byte_arr
 
+        # Process frame using speculative execution
         specop_start_time = time.time()
-        result = operator.process_message(frame_id, message)
+        result = operator.process_message(frame_id, img_byte_arr)
         specop_elapsed_time = time.time() - specop_start_time
         specop_times.append(specop_elapsed_time)
+
         logger.info(
-            f"speculative execution time on frame {frame_id}: {specop_elapsed_time:.3f}"
+            f"Frame {frame_id}/{total_frames}: processed in {specop_elapsed_time:.3f}s"
         )
 
-        time.sleep(1.0 / fps)  # wait for duration of a frame before proceeding
-
-        if not result:
-            logger.info("result empty")
-        # else:
-        #     logger.info(f"result = {result}")
-
+        # Respect original video timing
+        time.sleep(1.0 / fps)
         frame_id += 1
 
-    median_local_time = median(operator.local_ex_times)
-    mean_local_time = sum(operator.local_ex_times) / len(operator.local_ex_times)
-    mean_cloud_times = {}
-    median_cloud_times = {}
+    cap.release()
+
+    # Report performance statistics
+    if operator.local_ex_times:
+        median_local_time = median(operator.local_ex_times)
+        logger.info(f"Median local execution time: {median_local_time:.3f}s")
+
     for imp in operator.cloud_ex_times:
-        mean_cloud_times[imp] = sum(operator.cloud_ex_times[imp]) / len(
-            operator.cloud_ex_times[imp]
-        )
-        median_cloud_times[imp] = median(operator.cloud_ex_times[imp])
-    mean_spec_time = sum(specop_times) / len(specop_times)
-    median_spec_time = median(specop_times)
+        if operator.cloud_ex_times[imp]:
+            median_cloud_time = median(operator.cloud_ex_times[imp])
+            logger.info(
+                f"Median cloud execution time (impl {imp}): {median_cloud_time:.3f}s"
+            )
 
-    logger.info(f"median local time: {median_local_time:.3f}")
-    for imp in median_cloud_times:
-        logger.info(f"median {imp} cloud time: {mean_cloud_times[imp]:.3f}")
+    if specop_times:
+        median_spec_time = median(specop_times)
+        logger.info(f"Median speculative execution time: {median_spec_time:.3f}s")
 
-    logger.info(f"median speculative op time: {median_spec_time:.3f}")
-
-    elapsed_time = time.time() - start_time
-    logger.info(f"sync took {elapsed_time} seconds to process all images")
+    total_time = time.time() - start_time
+    logger.info(f"Total processing time: {total_time:.3f}s")
+    logger.info(f"Successfully processed {frame_id} frames using speculative execution")
 
 
-def msg_handler(timestamp, input_message) -> tuple[RpcRequest, Deadline]:
+def msg_handler(
+    timestamp, input_message
+) -> tuple[object_detection_pb2.Request, Deadline]:
+    """Prepare a request to send to the object detection server.
+
+    Args:
+        timestamp: Frame ID or other identifier
+        input_message: Raw image data to process
+
+    Returns:
+        A tuple of (request object, deadline)
+    """
     return object_detection_pb2.Request(
         image_data=input_message, req_id=timestamp
     ), Deadline(seconds=3.0, is_absolute=False)
 
 
-def response_handler(input: object_detection_pb2.Response):
-    pass
+def response_handler(response: object_detection_pb2.Response):
+    """Process the response from the object detection server.
+
+    This function can be expanded to handle the detected objects.
+
+    Args:
+        response: Response from the object detection server
+    """
+    return response.detected_objects
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--video", type=str, help="Path to the input video file")
+    parser = argparse.ArgumentParser(
+        description="Speculative execution example for object detection"
+    )
     parser.add_argument(
-        "--ports", nargs="+", type=int, help="List of server ports", required=True
+        "--video", type=str, required=True, help="Path to the input video file"
+    )
+    parser.add_argument(
+        "--ports",
+        nargs="+",
+        type=int,
+        required=True,
+        help="List of server ports where object detection servers are running",
     )
     args = parser.parse_args()
 
-    test_speculative_operator(video_path=args.video, server_ports=args.ports)
+    process_video(video_path=args.video, server_ports=args.ports)

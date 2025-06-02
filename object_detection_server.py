@@ -21,12 +21,10 @@ logger = logging.getLogger(__name__)
 
 PORT = "12345"
 ENCODING = "ISO-8859-1"
-# response_str = ''.join(choice(ascii_uppercase) for i in range(1000))
 RESPONSE = "".join("A" for i in range(1000))
 
 
 def process_image(image_data: bytes, obj_detector):
-    # response = requests.get(image_data)
     im = Image.open(io.BytesIO(image_data))
     logger.info("running object detector on server...")
     start_time = time.time()
@@ -49,10 +47,8 @@ class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
             "ProcessImageSync called by client with the message len: %d",
             len(request.image_data),
         )
-        # image_received = process_image(request.image_data)
         recv_time = time.time()
         detected_objects = process_image(request.image_data, self.obj_detector)
-        # print(detected_objects)
         response = object_detection_pb2.Response(
             detected_objects=detected_objects,
             req_id=request.req_id,
@@ -69,9 +65,7 @@ class ImageServer(object_detection_pb2_grpc.GRPCImageServicer):
                 len(request.image_data),
                 request.req_id,
             )
-            # image_received = process_image(request.image_data)
             detected_objects = process_image(request.image_data, self.obj_detector)
-            # print(image_received)
             yield object_detection_pb2.Response(
                 detected_objects=detected_objects,
                 req_id=request.req_id,
