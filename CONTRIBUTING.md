@@ -14,3 +14,5 @@ Here are some areas that are being explored:
 2. More advanced performance analysis tools to measure server behavior across:
    - Various network conditions between servers (e.g., 10Mbps vs 100Mbps)
    - Different scales of concurrent request loads
+   - Different models
+3. Support for easily swapping object detection models when running examples
