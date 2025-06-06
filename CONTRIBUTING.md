@@ -2,6 +2,10 @@
 
 Thank you for considering contributing to the Speculative Cloud Execution project!
 
+## How to Contribute
+
+If you're interested in contributing to this project, simply fork the repository, make your changes, and submit a pull request.
+
 ## Roadmap
 
 Here are some areas that are being explored:
@@ -10,10 +14,3 @@ Here are some areas that are being explored:
 2. More advanced performance analysis tools to measure server behavior across:
    - Various network conditions between servers (e.g., 10Mbps vs 100Mbps)
    - Different scales of concurrent request loads
-
-## Suggesting Enhancements
-
-If you have ideas for enhancing the project beyond our current roadmap:
-
-- **Use the GitHub issue tracker** — Check if the enhancement has already been suggested by searching on GitHub under Issues.
-- **Provide context** — Explain why this enhancement would be useful and how it aligns with the project's goals.
