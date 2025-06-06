@@ -6,7 +6,7 @@ from collections import defaultdict
 from threading import Semaphore, Thread
 from typing import Any, Generic, List, Tuple
 
-from cloud_executor import (
+from core.cloud_executor import (
     Deadline,
     Implementation,
     InputT,

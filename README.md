@@ -13,6 +13,15 @@ This project implements a speculative operator system that:
 
 The system processes video frames by sending them simultaneously to local and cloud object detection services, then uses whichever result returns first or has the highest priority.
 
+## How It Works
+
+1. The `SpeculativeOperator` class defines the core functionality
+2. When processing a message (e.g., a video frame):
+   - The system sends the frame to both local and cloud object detection services
+   - Each service processes the frame and returns detected objects
+   - Based on deadlines and priorities, the system selects the best result
+3. Performance statistics are collected to analyze the effectiveness of the approach
+
 ## Technologies and Frameworks
 
 - **gRPC**: Powers the communication layer between local and cloud components, enabling efficient remote procedure calls with deadline support for the speculative execution system
@@ -21,6 +30,22 @@ The system processes video frames by sending them simultaneously to local and cl
 - **OpenCV**: Handles video frame extraction, processing, and format conversion in the example applications
 - **PyTorch**: Serves as the underlying deep learning framework that powers the DETR object detection models
 - **Python Threading**: Implements the concurrent execution of local and cloud detection tasks with deadline management
+
+## Project Structure
+
+- **core/**: Core implementation of the speculative execution system
+  - `coordinator.py`: Implementation of the speculative execution framework
+  - `cloud_executor.py`: Handles cloud execution and RPC communication
+
+- **examples/**: Example applications demonstrating the use of the system
+  - `example_sync.py`: Example usage with synchronous processing
+  - `example_stream.py`: Example usage with streaming processing (WIP)
+
+- **servers/**: Server implementations for processing requests
+  - `object_detection_server.py`: Implements the object detection service
+
+- **protos/**: Protocol buffer definitions for communication
+  - `object_detection.proto`: Defines the message format for the object detection service
 
 ## Getting Started
 
@@ -43,9 +68,9 @@ The system processes video frames by sending them simultaneously to local and cl
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install dependencies:
+3. Install the package in development mode:
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
 4. Compile the protocol buffers:
@@ -60,7 +85,7 @@ The system processes video frames by sending them simultaneously to local and cl
 Start an object detection server on a specific port:
 
 ```bash
-python object_detection_server.py --port 12345 --model facebook/detr-resnet-50
+python servers/object_detection_server.py --port 12345 --model facebook/detr-resnet-50
 ```
 
 You can start multiple servers on different ports with different models for redundancy or comparison.
@@ -70,29 +95,11 @@ You can start multiple servers on different ports with different models for redu
 Process a video file using the speculative execution system:
 
 ```bash
-python example_sync.py --video path/to/your/video.mp4 --ports 12345 [12346 ...]
+python examples/example_sync.py --video "path/to/your/video.mp4" --ports 12345 [12346 ...]
 ```
 
 Optional flags:
 - `--verbose`: Enable detailed logging of internal operations
-
-## How It Works
-
-1. The `SpeculativeOperator` class defines the core functionality
-2. When processing a message (e.g., a video frame):
-   - The system sends the frame to both local and cloud object detection services
-   - Each service processes the frame and returns detected objects
-   - Based on deadlines and priorities, the system selects the best result
-3. Performance statistics are collected to analyze the effectiveness of the approach
-
-## Project Structure
-
-- `coordinator.py`: Core implementation of the speculative execution system
-- `cloud_executor.py`: Handles cloud execution and RPC communication
-- `object_detection_server.py`: Implements the object detection service
-- `example_sync.py`: Example usage with synchronous processing
-- `example_stream.py`: Example usage with streaming processing (WIP)
-- `protos/`: Protocol buffer definitions for communication
 
 ## Contributing
 

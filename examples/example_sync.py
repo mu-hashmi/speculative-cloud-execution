@@ -10,11 +10,10 @@ from statistics import median
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 warnings.filterwarnings("ignore", category=UserWarning)
 
-import cloud_executor
-import coordinator
 import cv2
-from cloud_executor import Deadline, configure_logging
-from coordinator import configure_coordinator_logging
+from core import cloud_executor, coordinator
+from core.cloud_executor import Deadline, configure_logging
+from core.coordinator import configure_coordinator_logging
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 from transformers import pipeline

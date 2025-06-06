@@ -5,14 +5,15 @@
 
 import io
 import logging
+import os
 import queue
 import time
 from collections.abc import Iterator
 from typing import Union
 
-import coordinator
 import requests
-from coordinator import Deadline
+from core import coordinator
+from core.coordinator import Deadline
 from PIL import Image
 from protos import object_detection_pb2, object_detection_pb2_grpc
 
