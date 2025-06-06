@@ -16,7 +16,7 @@ The system processes video frames by sending them simultaneously to local and cl
 ## Technologies and Frameworks
 
 - **gRPC**: Powers the communication layer between local and cloud components, enabling efficient remote procedure calls with deadline support for the speculative execution system
-- **Protocol Buffers**: Defines the message format (`Request` and `Response` in `object_detection.proto`) for serializing image data and detection results between client and servers
+- **Protocol Buffers**: Defines the message format (`Request` and `Response` in [`object_detection.proto`](protos/object_detection.proto)) for serializing image data and detection results between client and servers
 - **Transformers (Hugging Face)**: Provides the object detection pipeline and models (DETR) used in both local execution and server implementations
 - **OpenCV**: Handles video frame extraction, processing, and format conversion in the example applications
 - **PyTorch**: Serves as the underlying deep learning framework that powers the DETR object detection models
