@@ -11,7 +11,7 @@ else ifeq ($(UNAME_S), Darwin)
 	REPLACE_CMD = sed -i "" "s/import object_detection_pb2/import protos.object_detection_pb2/g" "protos/object_detection_pb2_grpc.py"
 endif
 
-# Use Python from parent directory's virtual environment
+# Use Python from virtual environment (assuming in parent directory)
 # Python 3.11 is used for package compatibility. Other versions may work, but are not tested.
 PYTHON := ../venv_py311/bin/python
 
