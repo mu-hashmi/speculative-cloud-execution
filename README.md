@@ -1,6 +1,6 @@
 # Speculative Cloud Execution for Autonomous Vehicles
 
-This project is a speculative execution system for object detection tasks that can be executed both locally and in the cloud. The implementation demonstrates the system designed in the research paper "Leveraging Cloud Computing to make Autonomous Vehicles Safer" [1](https://pschafhalter.com/papers/2023-iros-cloud-av-safety.pdf) and was developed in collaboration with Peter Schafhalter at Berkeley RISELab.
+This project is a speculative execution system for object detection tasks that can be executed both locally and in the cloud. The implementation demonstrates the system designed in the research paper ["Leveraging Cloud Computing to make Autonomous Vehicles Safer"](https://pschafhalter.com/papers/2023-iros-cloud-av-safety.pdf) and was developed in collaboration with Peter Schafhalter at Berkeley RISELab.
 
 ## About
 
@@ -111,5 +111,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- This project is based on the research paper "Leveraging Cloud Computing to Make Autonomous Vehicles Safer" [1](https://pschafhalter.com/papers/2023-iros-cloud-av-safety.pdf)
+- This project is based on the research paper ["Leveraging Cloud Computing to Make Autonomous Vehicles Safer"](https://pschafhalter.com/papers/2023-iros-cloud-av-safety.pdf)
 - Developed in collaboration with Peter Schafhalter at Berkeley RISELab
